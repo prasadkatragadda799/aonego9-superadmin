@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/widgets/common.dart';
+import '../../data/repositories/admin_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,11 +17,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController(text: 'demo1234');
   bool _obscure = true;
   bool _loading = false;
+  String _error = '';
+  final _repo = AdminRepository();
 
   Future<void> _login() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 600)); // TODO: POST /api/admin/auth/login
-    if (mounted) context.go('/dashboard');
+    setState(() { _loading = true; _error = ''; });
+    try {
+      await _repo.login(_email.text.trim(), _password.text);
+      if (mounted) context.go('/dashboard');
+    } catch (e) {
+      setState(() { _error = e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), ''); });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -30,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       password: _password,
       obscure: _obscure,
       loading: _loading,
+      error: _error,
       onToggle: () => setState(() => _obscure = !_obscure),
       onSubmit: _login,
     );
@@ -122,12 +132,14 @@ class _BrandPanel extends StatelessWidget {
 class _LoginForm extends StatelessWidget {
   final TextEditingController email, password;
   final bool obscure, loading;
+  final String error;
   final VoidCallback onToggle, onSubmit;
   const _LoginForm({
     required this.email,
     required this.password,
     required this.obscure,
     required this.loading,
+    required this.error,
     required this.onToggle,
     required this.onSubmit,
   });
@@ -142,6 +154,14 @@ class _LoginForm extends StatelessWidget {
         const SizedBox(height: 6),
         Text('Sign in to the Super Admin console', style: AppType.body(color: AppColors.textSecondary)),
         const SizedBox(height: 32),
+        if (error.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.withValues(alpha: 0.3))),
+            child: Text(error, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          ),
+        ],
         const Text('Email', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 8),
         TextField(controller: email, decoration: const InputDecoration(hintText: 'you@aonego9.com')),
@@ -175,8 +195,11 @@ class _LoginForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        const Center(
-          child: Text('Demo build • credentials pre-filled', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        Center(
+          child: Text(
+            'Backend: ${AdminRepository.baseUrlHint}',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+          ),
         ),
       ],
     );
