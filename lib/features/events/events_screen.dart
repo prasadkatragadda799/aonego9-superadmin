@@ -33,17 +33,41 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _togglePoster(PlatformEvent e, bool v) async {
-    await _repo.toggleEventPoster(e.id, v);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(v ? '“${e.title}” added to live poster' : '“${e.title}” removed from poster')),
-    );
+    final idx = _events.indexWhere((x) => x.id == e.id);
+    if (idx != -1) setState(() => _events[idx] = _events[idx].copyWith(onPoster: v));
+    try {
+      await _repo.toggleEventPoster(e.id, v);
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(v ? '”${e.title}” added to live poster' : '”${e.title}” removed from poster')),
+      );
+    } catch (err) {
+      if (idx != -1) setState(() => _events[idx] = e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: ${err.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), '')}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   Future<void> _setStatus(PlatformEvent e, EventStatus s) async {
-    await _repo.setEventStatus(e.id, s);
-    await _load();
+    final idx = _events.indexWhere((x) => x.id == e.id);
+    if (idx != -1) setState(() => _events[idx] = _events[idx].copyWith(status: s));
+    try {
+      await _repo.setEventStatus(e.id, s);
+      await _load();
+    } catch (err) {
+      if (idx != -1) setState(() => _events[idx] = e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: ${err.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), '')}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   @override

@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/responsive_table.dart';
 import '../../data/models/models.dart';
 import '../../data/models/status_ui.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -47,12 +46,34 @@ class _VendorsScreenState extends State<VendorsScreen> {
       }).toList();
 
   Future<void> _setStatus(Vendor v, ApprovalStatus s) async {
-    await _repo.setVendorStatus(v.id, s);
-    await _load();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${v.company} → ${StatusUi.approval(s).$1}'), backgroundColor: AppColors.surfaceAlt),
-      );
+    // Optimistic update — swap status in local list immediately
+    final idx = _all.indexWhere((x) => x.id == v.id);
+    if (idx != -1) {
+      setState(() => _all[idx] = _all[idx].copyWith(status: s));
+    }
+    try {
+      await _repo.setVendorStatus(v.id, s);
+      // Confirm by reloading from backend
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${v.company} → ${StatusUi.approval(s).$1}'),
+            backgroundColor: AppColors.surfaceAlt,
+          ),
+        );
+      }
+    } catch (e) {
+      // Roll back the optimistic update on failure
+      if (idx != -1) setState(() => _all[idx] = v);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: ${e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -104,45 +125,91 @@ class _VendorsScreenState extends State<VendorsScreen> {
               else if (_filtered.isEmpty)
                 const EmptyView(message: 'No vendors match your filters')
               else
-                ResponsiveTable(
-                  columns: const [
-                    TableColumn('Vendor', flex: 3),
-                    TableColumn('Category', flex: 2),
-                    TableColumn('City', flex: 2),
-                    TableColumn('KYC', flex: 1),
-                    TableColumn('Earnings', flex: 2, numeric: true),
-                    TableColumn('Status', flex: 2),
-                    TableColumn('Actions', flex: 2),
-                  ],
-                  rowCount: _filtered.length,
-                  onRowTap: (i) => _openDetail(_filtered[i]),
-                  cellsBuilder: (i) {
-                    final v = _filtered[i];
-                    final (label, color) = StatusUi.approval(v.status);
-                    return [
-                      Row(children: [
-                        InitialsAvatar(name: v.name, size: 34),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(v.company, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5), overflow: TextOverflow.ellipsis),
-                            Text(v.name, style: const TextStyle(color: AppColors.textMuted, fontSize: 12), overflow: TextOverflow.ellipsis),
-                          ]),
-                        ),
+                Column(
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(children: [
+                        _hdr('Vendor', flex: 4),
+                        _hdr('Category', flex: 2),
+                        _hdr('City', flex: 2),
+                        _hdr('KYC', flex: 1),
+                        _hdr('Status', flex: 2),
+                        _hdr('Actions', flex: 3),
                       ]),
-                      tcell(v.category),
-                      tcell(v.city),
-                      Icon(v.kycVerified ? Icons.verified : Icons.error_outline, size: 18, color: v.kycVerified ? AppColors.success : AppColors.warning),
-                      tcell(cur.format(v.totalEarnings), numeric: true, weight: FontWeight.w600),
-                      StatusChip(label: label, color: color),
-                      _rowActions(v),
-                    ];
-                  },
+                    ),
+                    const Divider(height: 1),
+                    for (var i = 0; i < _filtered.length; i++) ...[
+                      _vendorRow(_filtered[i], cur),
+                      if (i < _filtered.length - 1) const Divider(height: 1),
+                    ],
+                  ],
                 ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _hdr(String label, {int flex = 1}) => Expanded(
+        flex: flex,
+        child: Text(label.toUpperCase(),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
+      );
+
+  Widget _vendorRow(Vendor v, NumberFormat cur) {
+    final (statusLabel, statusColor) = StatusUi.approval(v.status);
+    final isApproved = v.status == ApprovalStatus.approved;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _openDetail(v),
+      child: Container(
+        decoration: isApproved
+            ? const BoxDecoration(
+                border: Border(left: BorderSide(color: AppColors.success, width: 3)),
+              )
+            : null,
+        padding: EdgeInsets.only(
+          left: isApproved ? 13 : 16,
+          right: 16,
+          top: 14,
+          bottom: 14,
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          // Vendor
+          Expanded(flex: 4, child: Row(children: [
+            InitialsAvatar(name: v.name, size: 34),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(v.company.isEmpty ? v.name : v.company,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                  overflow: TextOverflow.ellipsis),
+              Text(v.name, style: const TextStyle(color: AppColors.textMuted, fontSize: 12), overflow: TextOverflow.ellipsis),
+            ])),
+          ])),
+          // Category
+          Expanded(flex: 2, child: Text(v.category.isEmpty ? '—' : v.category,
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+          // City
+          Expanded(flex: 2, child: Text(v.city.isEmpty ? '—' : v.city,
+              style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis)),
+          // KYC
+          Expanded(flex: 1, child: Tooltip(
+            message: v.kycVerified ? 'KYC Verified' : 'KYC Pending',
+            child: Icon(
+              v.kycVerified ? Icons.verified_rounded : Icons.pending_outlined,
+              size: 18,
+              color: v.kycVerified ? AppColors.success : AppColors.warning,
+            ),
+          )),
+          // Status
+          Expanded(flex: 2, child: StatusChip(label: statusLabel, color: statusColor)),
+          // Actions
+          Expanded(flex: 3, child: _rowActions(v)),
+        ]),
+      ),
     );
   }
 
@@ -237,15 +304,65 @@ class _VendorsScreenState extends State<VendorsScreen> {
             _kv('Lifetime earnings', cur.format(v.totalEarnings)),
             _kv('Joined', DateFormat('d MMM yyyy').format(v.joinedAt)),
             const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _setStatus(v, ApprovalStatus.approved); }, icon: const Icon(Icons.check, size: 18), label: const Text('Approve'))),
-              const SizedBox(width: 12),
-              Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(ctx); _setStatus(v, ApprovalStatus.suspended); }, icon: const Icon(Icons.block, size: 18), label: const Text('Suspend'))),
-            ]),
+            Row(children: _detailActions(ctx, v)),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _detailActions(BuildContext ctx, Vendor v) {
+    void act(ApprovalStatus s) { Navigator.pop(ctx); _setStatus(v, s); }
+
+    switch (v.status) {
+      case ApprovalStatus.pending:
+        return [
+          Expanded(child: ElevatedButton.icon(
+            onPressed: () => act(ApprovalStatus.approved),
+            icon: const Icon(Icons.check, size: 18), label: const Text('Approve'),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: () => act(ApprovalStatus.rejected),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+            icon: const Icon(Icons.close, size: 18), label: const Text('Reject'),
+          )),
+        ];
+      case ApprovalStatus.approved:
+        return [
+          Expanded(child: OutlinedButton.icon(
+            onPressed: () => act(ApprovalStatus.suspended),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.warning, side: const BorderSide(color: AppColors.warning)),
+            icon: const Icon(Icons.block, size: 18), label: const Text('Suspend'),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: () => act(ApprovalStatus.rejected),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+            icon: const Icon(Icons.delete_outline, size: 18), label: const Text('Reject'),
+          )),
+        ];
+      case ApprovalStatus.suspended:
+        return [
+          Expanded(child: ElevatedButton.icon(
+            onPressed: () => act(ApprovalStatus.approved),
+            icon: const Icon(Icons.check, size: 18), label: const Text('Reinstate'),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: () => act(ApprovalStatus.rejected),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+            icon: const Icon(Icons.close, size: 18), label: const Text('Reject'),
+          )),
+        ];
+      case ApprovalStatus.rejected:
+        return [
+          Expanded(child: ElevatedButton.icon(
+            onPressed: () => act(ApprovalStatus.pending),
+            icon: const Icon(Icons.refresh, size: 18), label: const Text('Reconsider'),
+          )),
+        ];
+    }
   }
 
   Widget _kv(String k, String v) => Padding(

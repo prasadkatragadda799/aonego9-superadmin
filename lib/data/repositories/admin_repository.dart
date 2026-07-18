@@ -31,7 +31,7 @@ class AdminRepository {
       'totalUsers': data['total_users'] as num,
       'activeBookings': data['active_bookings'] as num,
       'revenue': data['total_revenue'] as num,
-      'disputes': 0,
+      'disputes': data['disputes'] as num,
     };
   }
 
@@ -179,22 +179,15 @@ class AdminRepository {
 
   // ── Analytics ─────────────────────────────────────────────────
 
-  // GET /api/v1/analytics/admin/dashboard (KPIs already in dashboardSummary)
+  // GET /api/v1/analytics/admin/trends
   Future<Map<String, List<KpiPoint>>> analytics() async {
-    // Return stub trend data — wire up dedicated trend endpoints as needed
+    final data = await ApiClient.get('/analytics/admin/trends') as Map;
+    List<KpiPoint> parsePoints(List points) =>
+        points.map((p) => KpiPoint(p['label'] as String, (p['value'] as num).toDouble())).toList();
     return {
-      'revenue': const [
-        KpiPoint('Jan', 2.1), KpiPoint('Feb', 2.6), KpiPoint('Mar', 2.4),
-        KpiPoint('Apr', 3.2), KpiPoint('May', 3.8), KpiPoint('Jun', 4.5),
-      ],
-      'signups': const [
-        KpiPoint('Jan', 120), KpiPoint('Feb', 180), KpiPoint('Mar', 160),
-        KpiPoint('Apr', 240), KpiPoint('May', 320), KpiPoint('Jun', 410),
-      ],
-      'categoryShare': const [
-        KpiPoint('Models', 38), KpiPoint('Photo', 24), KpiPoint('Video', 16),
-        KpiPoint('Venues', 12), KpiPoint('Events', 10),
-      ],
+      'revenue': parsePoints((data['revenue'] as Map)['points'] as List),
+      'signups': parsePoints((data['signups'] as Map)['points'] as List),
+      'categoryShare': parsePoints((data['category_share'] as Map)['shares'] as List),
     };
   }
 

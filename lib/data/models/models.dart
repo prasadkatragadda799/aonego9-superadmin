@@ -217,16 +217,16 @@ class Booking {
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'].toString(),
-        clientName: j['clientName'] ?? '',
-        vendorName: j['vendorName'] ?? '',
+        clientName: j['client_name'] ?? j['clientName'] ?? '',
+        vendorName: j['vendor_name'] ?? j['vendorName'] ?? '',
         service: j['service'] ?? '',
         date: DateTime.tryParse(j['date'] ?? '') ?? DateTime.now(),
         amount: (j['amount'] ?? 0).toDouble(),
         status: _enumFromString(BookingStatus.values, j['status'], BookingStatus.requested),
         city: j['city'] ?? j['location'] ?? '',
         source: _enumFromString(BookingSource.values, j['source'], BookingSource.direct),
-        inquiryRef: j['inquiryRef'],
-        advancePaid: (j['advancePaid'] ?? 0).toDouble(),
+        inquiryRef: j['inquiry_ref'] ?? j['inquiryRef'],
+        advancePaid: (j['advance_paid'] ?? j['advancePaid'] ?? 0).toDouble(),
       );
 
   Map<String, dynamic> toJson() => {

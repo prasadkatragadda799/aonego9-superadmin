@@ -13,11 +13,18 @@ import '../../features/support/support_screen.dart';
 import '../../features/cms/cms_screen.dart';
 import '../../features/events/events_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../data/api/api_client.dart';
 
 /// Central route table. Every authenticated page is wrapped in [AppShell]
 /// via a ShellRoute so the sidebar/rail/drawer persists across navigation.
 final appRouter = GoRouter(
   initialLocation: '/login',
+  redirect: (context, state) async {
+    final loggedIn = await ApiClient.isLoggedIn();
+    final loggingIn = state.matchedLocation == '/login';
+    if (!loggedIn && !loggingIn) return '/login';
+    return null;
+  },
   routes: [
     GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
     ShellRoute(

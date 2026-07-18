@@ -43,10 +43,22 @@ class _UsersScreenState extends State<UsersScreen> {
       }).toList();
 
   Future<void> _setStatus(AppUser u, ApprovalStatus s) async {
-    await _repo.setUserStatus(u.id, s);
-    await _load();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${u.name} → ${StatusUi.approval(s).$1}'), backgroundColor: AppColors.surfaceAlt));
+    final idx = _all.indexWhere((x) => x.id == u.id);
+    if (idx != -1) setState(() => _all[idx] = _all[idx].copyWith(status: s));
+    try {
+      await _repo.setUserStatus(u.id, s);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${u.name} → ${StatusUi.approval(s).$1}'), backgroundColor: AppColors.surfaceAlt));
+      }
+    } catch (e) {
+      if (idx != -1) setState(() => _all[idx] = u);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: ${e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), '')}'),
+          backgroundColor: Colors.red,
+        ));
+      }
     }
   }
 

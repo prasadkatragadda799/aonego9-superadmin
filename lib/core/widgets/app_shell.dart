@@ -5,6 +5,7 @@ import '../theme/typography.dart';
 import '../responsive/responsive.dart';
 import '../routing/nav_items.dart';
 import '../widgets/common.dart';
+import '../../data/repositories/admin_repository.dart';
 
 /// Adaptive shell that wraps every page.
 /// - Desktop  : fixed expanded sidebar
@@ -132,7 +133,10 @@ class _Sidebar extends StatelessWidget {
             item: const NavItem('Logout', Icons.logout, '/login'),
             expanded: expanded,
             selected: false,
-            onTap: () => context.go('/login'),
+            onTap: () async {
+              await AdminRepository().logout();
+              if (context.mounted) context.go('/login');
+            },
           ),
           const SizedBox(height: 12),
         ],
