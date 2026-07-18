@@ -194,13 +194,6 @@ class _LoginForm extends StatelessWidget {
                 : const Text('Sign In'),
           ),
         ),
-        const SizedBox(height: 20),
-        Center(
-          child: Text(
-            'Backend: ${AdminRepository.baseUrlHint}',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-          ),
-        ),
       ],
     );
   }

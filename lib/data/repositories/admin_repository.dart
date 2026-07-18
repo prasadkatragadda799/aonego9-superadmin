@@ -8,8 +8,6 @@ import '../api/api_client.dart';
 /// Base URL is configured in api_client.dart (kBaseUrl).
 /// ───────────────────────────────────────────────────────────────
 class AdminRepository {
-  static const String baseUrlHint = kBaseUrl;
-
   // ── Auth ─────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> login(String email, String password) async {
