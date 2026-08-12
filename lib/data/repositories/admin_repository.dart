@@ -52,6 +52,18 @@ class AdminRepository {
     await ApiClient.put('/vendors/admin/$id/kyc', {'kyc_verified': verified});
   }
 
+  // GET /api/v1/vendors/admin/{id}/portfolio
+  Future<List<Map<String, dynamic>>> vendorPortfolio(String vendorId) async {
+    final data = await ApiClient.get('/vendors/admin/$vendorId/portfolio') as List;
+    return data.cast<Map<String, dynamic>>();
+  }
+
+  // GET /api/v1/vendors/admin/{id}/profile-details
+  Future<Map<String, dynamic>> vendorProfileDetails(String vendorId) async {
+    final data = await ApiClient.get('/vendors/admin/$vendorId/profile-details') as Map;
+    return data.cast<String, dynamic>();
+  }
+
   // ── Users ─────────────────────────────────────────────────────
 
   // GET /api/v1/users
@@ -187,6 +199,56 @@ class AdminRepository {
       'signups': parsePoints((data['signups'] as Map)['points'] as List),
       'categoryShare': parsePoints((data['category_share'] as Map)['shares'] as List),
     };
+  }
+
+  // ── Subscriptions ─────────────────────────────────────────────
+
+  // GET /subscriptions/admin/plans
+  Future<List<SubscriptionPlan>> subscriptionPlans() async {
+    final data = await ApiClient.get('/subscriptions/admin/plans') as List;
+    return data.map((j) => SubscriptionPlan.fromJson(j)).toList();
+  }
+
+  // POST /subscriptions/admin/plans
+  Future<SubscriptionPlan> createPlan(SubscriptionPlan plan) async {
+    final data = await ApiClient.post('/subscriptions/admin/plans', plan.toJson());
+    return SubscriptionPlan.fromJson(data);
+  }
+
+  // PUT /subscriptions/admin/plans/{id}
+  Future<void> updatePlan(String id, SubscriptionPlan plan) async {
+    await ApiClient.put('/subscriptions/admin/plans/$id', plan.toJson());
+  }
+
+  // DELETE /subscriptions/admin/plans/{id}
+  Future<void> deletePlan(String id) => ApiClient.delete('/subscriptions/admin/plans/$id');
+
+  // GET /subscriptions/admin/payment-info
+  Future<PaymentSettings> paymentSettings() async {
+    final data = await ApiClient.get('/subscriptions/admin/payment-info') as Map;
+    return PaymentSettings.fromJson(data.cast<String, dynamic>());
+  }
+
+  // PUT /subscriptions/admin/payment-info
+  Future<void> setPaymentSettings(String upiId, String payeeName) async {
+    await ApiClient.put('/subscriptions/admin/payment-info', {'upi_id': upiId, 'payee_name': payeeName});
+  }
+
+  // GET /subscriptions/admin/requests
+  Future<List<SubscriptionRequest>> subscriptionRequests({String? status}) async {
+    final q = status != null ? '?status=$status' : '';
+    final data = await ApiClient.get('/subscriptions/admin/requests$q') as List;
+    return data.map((j) => SubscriptionRequest.fromJson(j)).toList();
+  }
+
+  // POST /subscriptions/admin/requests/{id}/approve
+  Future<void> approveRequest(String id, {String adminNote = ''}) async {
+    await ApiClient.post('/subscriptions/admin/requests/$id/approve', {'admin_note': adminNote});
+  }
+
+  // POST /subscriptions/admin/requests/{id}/reject
+  Future<void> rejectRequest(String id, {String adminNote = ''}) async {
+    await ApiClient.post('/subscriptions/admin/requests/$id/reject', {'admin_note': adminNote});
   }
 
   // ── Private helpers ───────────────────────────────────────────

@@ -8,6 +8,7 @@ import '../../features/vendors/vendors_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/bookings/bookings_screen.dart';
 import '../../features/payments/payments_screen.dart';
+import '../../features/subscriptions/subscriptions_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
 import '../../features/support/support_screen.dart';
 import '../../features/cms/cms_screen.dart';
@@ -36,6 +37,7 @@ final appRouter = GoRouter(
         GoRoute(path: '/users', builder: (_, __) => const UsersScreen()),
         GoRoute(path: '/bookings', builder: (_, __) => const BookingsScreen()),
         GoRoute(path: '/payments', builder: (_, __) => const PaymentsScreen()),
+        GoRoute(path: '/subscriptions', builder: (_, __) => const SubscriptionsScreen()),
         GoRoute(path: '/reviews', builder: (_, __) => const ReviewsScreen()),
         GoRoute(path: '/support', builder: (_, __) => const SupportScreen()),
         GoRoute(path: '/cms', builder: (_, __) => const CmsScreen()),

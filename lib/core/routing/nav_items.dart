@@ -17,6 +17,7 @@ const adminNav = <NavItem>[
   NavItem('Talent & Users', Icons.people_outline, '/users', section: 'Marketplace'),
   NavItem('Bookings', Icons.event_note_outlined, '/bookings', section: 'Marketplace'),
   NavItem('Payments', Icons.payments_outlined, '/payments', section: 'Marketplace'),
+  NavItem('Subscriptions', Icons.workspace_premium_outlined, '/subscriptions', section: 'Marketplace'),
 
   NavItem('Reviews', Icons.star_outline, '/reviews', section: 'Moderation'),
   NavItem('Support', Icons.support_agent_outlined, '/support', section: 'Moderation'),

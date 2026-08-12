@@ -45,12 +45,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cur = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
 
     final cards = [
-      StatCard(label: 'Total Vendors', value: '${_summary!['totalVendors']}', icon: Icons.storefront_outlined, color: AppColors.gold, delta: '+12%'),
-      StatCard(label: 'Pending Approvals', value: '${_summary!['pendingVendors']}', icon: Icons.pending_actions_outlined, color: AppColors.warning, delta: '+3', deltaUp: false),
-      StatCard(label: 'Talent & Users', value: '${_summary!['totalUsers']}', icon: Icons.people_outline, color: AppColors.info, delta: '+8%'),
-      StatCard(label: 'Active Bookings', value: '${_summary!['activeBookings']}', icon: Icons.event_available_outlined, color: AppColors.success, delta: '+5%'),
-      StatCard(label: 'Total Revenue', value: cur.format(_summary!['revenue']), icon: Icons.payments_outlined, color: AppColors.goldLight, delta: '+18%'),
-      StatCard(label: 'Open Disputes', value: '${_summary!['disputes']}', icon: Icons.gavel_outlined, color: AppColors.danger, delta: '-1', deltaUp: true),
+      StatCard(label: 'Total Vendors', value: '${_summary!['totalVendors']}', icon: Icons.storefront_outlined, color: AppColors.gold),
+      StatCard(label: 'Pending Approvals', value: '${_summary!['pendingVendors']}', icon: Icons.pending_actions_outlined, color: AppColors.warning),
+      StatCard(label: 'Talent & Users', value: '${_summary!['totalUsers']}', icon: Icons.people_outline, color: AppColors.info),
+      StatCard(label: 'Active Bookings', value: '${_summary!['activeBookings']}', icon: Icons.event_available_outlined, color: AppColors.success),
+      StatCard(label: 'Total Revenue', value: cur.format(_summary!['revenue']), icon: Icons.payments_outlined, color: AppColors.goldLight),
+      StatCard(label: 'Open Disputes', value: '${_summary!['disputes']}', icon: Icons.gavel_outlined, color: AppColors.danger),
     ];
 
     final cols = responsiveValue(context, mobile: 1, tablet: 2, desktop: 3);

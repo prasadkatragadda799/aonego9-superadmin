@@ -276,43 +276,89 @@ class _VendorsScreenState extends State<VendorsScreen> {
       showDragHandle: true,
       constraints: BoxConstraints(maxWidth: Responsive.isMobile(context) ? double.infinity : 560),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              InitialsAvatar(name: v.name, size: 56),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(v.company, style: Theme.of(context).textTheme.titleLarge),
-                  Text('${v.name} · ${v.category}', style: const TextStyle(color: AppColors.textSecondary)),
-                ]),
-              ),
-              StatusChip(label: StatusUi.approval(v.status).$1, color: StatusUi.approval(v.status).$2),
-            ]),
-            const SizedBox(height: 20),
-            _kv('Email', v.email),
-            _kv('Phone', v.phone),
-            _kv('City', v.city),
-            _kv('Plan', '${v.plan} subscription'),
-            _kv('KYC', v.kycVerified ? 'Verified' : 'Not verified'),
-            _kv('Rating', v.rating == 0 ? '—' : '${v.rating} ★'),
-            _kv('Total bookings', '${v.totalBookings}'),
-            _kv('Lifetime earnings', cur.format(v.totalEarnings)),
-            _kv('Joined', DateFormat('d MMM yyyy').format(v.joinedAt)),
-            const SizedBox(height: 20),
-            Row(children: _detailActions(ctx, v)),
-          ],
-        ),
+      builder: (ctx) => _VendorDetailSheet(
+        vendor: v,
+        cur: cur,
+        repo: _repo,
+        onStatusChange: (vendor, status) {
+          Navigator.pop(ctx);
+          _setStatus(vendor, status);
+        },
       ),
     );
   }
 
-  List<Widget> _detailActions(BuildContext ctx, Vendor v) {
-    void act(ApprovalStatus s) { Navigator.pop(ctx); _setStatus(v, s); }
+  Widget _kv(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 150, child: Text(k, style: const TextStyle(color: AppColors.textMuted, fontSize: 13))),
+          Expanded(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5))),
+        ]),
+      );
+}
+
+class _VendorDetailSheet extends StatefulWidget {
+  final Vendor vendor;
+  final NumberFormat cur;
+  final AdminRepository repo;
+  final void Function(Vendor vendor, ApprovalStatus status) onStatusChange;
+  const _VendorDetailSheet({
+    required this.vendor,
+    required this.cur,
+    required this.repo,
+    required this.onStatusChange,
+  });
+
+  @override
+  State<_VendorDetailSheet> createState() => _VendorDetailSheetState();
+}
+
+class _VendorDetailSheetState extends State<_VendorDetailSheet> {
+  List<Map<String, dynamic>>? _portfolio;
+  Map<String, dynamic>? _profileDetails;
+  bool _loadingPortfolio = true;
+  bool _loadingDetails = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPortfolio();
+    _loadProfileDetails();
+  }
+
+  Future<void> _loadProfileDetails() async {
+    try {
+      final data = await widget.repo.vendorProfileDetails(widget.vendor.id);
+      if (!mounted) return;
+      setState(() {
+        _profileDetails = data;
+        _loadingDetails = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingDetails = false);
+    }
+  }
+
+  Future<void> _loadPortfolio() async {
+    try {
+      final items = await widget.repo.vendorPortfolio(widget.vendor.id);
+      if (!mounted) return;
+      setState(() {
+        _portfolio = items;
+        _loadingPortfolio = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _portfolio = [];
+        _loadingPortfolio = false;
+      });
+    }
+  }
+
+  List<Widget> _detailActions(Vendor v) {
+    void act(ApprovalStatus s) => widget.onStatusChange(v, s);
 
     switch (v.status) {
       case ApprovalStatus.pending:
@@ -372,4 +418,114 @@ class _VendorsScreenState extends State<VendorsScreen> {
           Expanded(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5))),
         ]),
       );
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.vendor;
+    final cur = widget.cur;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              InitialsAvatar(name: v.name, size: 56),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(v.company, style: Theme.of(context).textTheme.titleLarge),
+                  Text('${v.name} · ${v.category}', style: const TextStyle(color: AppColors.textSecondary)),
+                ]),
+              ),
+              StatusChip(label: StatusUi.approval(v.status).$1, color: StatusUi.approval(v.status).$2),
+            ]),
+            const SizedBox(height: 20),
+            _kv('Email', v.email),
+            _kv('Phone', v.phone),
+            _kv('City', v.city),
+            _kv('Plan', '${v.plan} subscription'),
+            _kv('KYC', v.kycVerified ? 'Verified' : 'Not verified'),
+            _kv('Rating', v.rating == 0 ? '—' : '${v.rating} ★'),
+            _kv('Total bookings', '${v.totalBookings}'),
+            _kv('Lifetime earnings', cur.format(v.totalEarnings)),
+            _kv('Joined', DateFormat('d MMM yyyy').format(v.joinedAt)),
+            const SizedBox(height: 18),
+            Text('Portfolio', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            if (_loadingPortfolio)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+            else if (_portfolio == null || _portfolio!.isEmpty)
+              const Text('No portfolio works uploaded yet.', style: TextStyle(color: AppColors.textMuted, fontSize: 13))
+            else
+              ..._portfolio!.take(6).map((item) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(item['emoji'] as String? ?? '🖼️', style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(item['headline'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                          if ((item['tag'] as String? ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text((item['tag'] as String).toUpperCase(), style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                            ),
+                          if ((item['description'] as String? ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(item['description'] as String, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
+                            ),
+                        ]),
+                      ),
+                      if (item['featured'] == true)
+                        const Icon(Icons.star, size: 16, color: AppColors.gold),
+                    ]),
+                  )),
+            if (!_loadingPortfolio && (_portfolio?.length ?? 0) > 6)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: Text('+ ${_portfolio!.length - 6} more works', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              ),
+            const SizedBox(height: 18),
+            Text('Profile details', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            if (_loadingDetails)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+            else if (_profileDetails == null)
+              const Text('Could not load profile details.', style: TextStyle(color: AppColors.textMuted, fontSize: 13))
+            else ...[
+              if ((_profileDetails!['overview'] as String? ?? '').isNotEmpty)
+                _kv('Overview', _profileDetails!['overview'] as String),
+              if ((_profileDetails!['experience'] as String? ?? '').isNotEmpty)
+                _kv('Experience', _profileDetails!['experience'] as String),
+              if (((_profileDetails!['services'] as List?) ?? []).isNotEmpty)
+                _kv('Services', ((_profileDetails!['services'] as List).join(', '))),
+              if (((_profileDetails!['spaces'] as List?) ?? []).isNotEmpty)
+                _kv('Spaces', '${(_profileDetails!['spaces'] as List).length} listed'),
+              if (((_profileDetails!['equipment'] as List?) ?? []).isNotEmpty)
+                _kv('Equipment', '${(_profileDetails!['equipment'] as List).length} items'),
+              if (((_profileDetails!['scene_data'] as List?) ?? []).isNotEmpty)
+                _kv('Scene items', '${(_profileDetails!['scene_data'] as List).length} listed'),
+              if ((_profileDetails!['overview'] as String? ?? '').isEmpty &&
+                  ((_profileDetails!['services'] as List?) ?? []).isEmpty &&
+                  ((_profileDetails!['spaces'] as List?) ?? []).isEmpty &&
+                  ((_profileDetails!['equipment'] as List?) ?? []).isEmpty &&
+                  ((_profileDetails!['scene_data'] as List?) ?? []).isEmpty)
+                const Text('No extended profile details filled in yet.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            ],
+            const SizedBox(height: 20),
+            Row(children: _detailActions(v)),
+          ],
+        ),
+      ),
+    );
+  }
 }

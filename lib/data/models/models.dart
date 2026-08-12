@@ -402,3 +402,104 @@ class KpiPoint {
   final double value;
   KpiPoint(this.label, this.value);
 }
+
+/// A subscription pricing tier offered to vendors and/or users.
+class SubscriptionPlan {
+  final String id;
+  final String name;
+  final double price;
+  final String period; // e.g. monthly, yearly
+  final List<String> features;
+  final bool recommended;
+  final String audience; // vendor | user | both
+
+  SubscriptionPlan({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.period,
+    required this.features,
+    required this.recommended,
+    required this.audience,
+  });
+
+  factory SubscriptionPlan.fromJson(Map<String, dynamic> j) => SubscriptionPlan(
+        id: j['id'].toString(),
+        name: j['name'] ?? '',
+        price: (j['price'] ?? 0).toDouble(),
+        period: j['period'] ?? '',
+        features: (j['features'] as List? ?? []).map((f) => f.toString()).toList(),
+        recommended: j['recommended'] ?? false,
+        audience: j['audience'] ?? 'both',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'price': price,
+        'period': period,
+        'features': features,
+        'recommended': recommended,
+        'audience': audience,
+      };
+}
+
+/// A vendor/user submitted request to activate a subscription plan,
+/// pending admin review of the uploaded payment receipt.
+class SubscriptionRequest {
+  final String id;
+  final String requesterType; // vendor | user
+  final String? vendorId;
+  final String? userId;
+  final String planId;
+  final String planName;
+  final double amount;
+  final String receiptImage; // base64 data URI
+  final String status; // pending | approved | rejected
+  final String adminNote;
+  final DateTime createdAt;
+  final DateTime? reviewedAt;
+
+  SubscriptionRequest({
+    required this.id,
+    required this.requesterType,
+    this.vendorId,
+    this.userId,
+    required this.planId,
+    required this.planName,
+    required this.amount,
+    required this.receiptImage,
+    required this.status,
+    required this.adminNote,
+    required this.createdAt,
+    this.reviewedAt,
+  });
+
+  factory SubscriptionRequest.fromJson(Map<String, dynamic> j) => SubscriptionRequest(
+        id: j['id'].toString(),
+        requesterType: j['requester_type'] ?? '',
+        vendorId: j['vendor_id']?.toString(),
+        userId: j['user_id']?.toString(),
+        planId: j['plan_id']?.toString() ?? '',
+        planName: j['plan_name'] ?? '',
+        amount: (j['amount'] ?? 0).toDouble(),
+        receiptImage: j['receipt_image'] ?? '',
+        status: j['status'] ?? 'pending',
+        adminNote: j['admin_note'] ?? '',
+        createdAt: DateTime.tryParse(j['created_at'] ?? '') ?? DateTime.now(),
+        reviewedAt: j['reviewed_at'] == null ? null : DateTime.tryParse(j['reviewed_at']),
+      );
+}
+
+/// The UPI details shown to vendors/users when paying for a subscription.
+class PaymentSettings {
+  final String upiId;
+  final String payeeName;
+  PaymentSettings({required this.upiId, required this.payeeName});
+
+  factory PaymentSettings.fromJson(Map<String, dynamic> j) => PaymentSettings(
+        upiId: j['upi_id'] ?? '',
+        payeeName: j['payee_name'] ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {'upi_id': upiId, 'payee_name': payeeName};
+}
