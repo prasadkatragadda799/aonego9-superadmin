@@ -1,11 +1,9 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/receipt_image.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/common.dart';
 import '../../data/models/models.dart';
@@ -699,17 +697,6 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
     super.dispose();
   }
 
-  Uint8List? get _imageBytes {
-    final raw = widget.request.receiptImage;
-    if (raw.isEmpty) return null;
-    try {
-      final b64 = raw.contains(',') ? raw.split(',').last : raw;
-      return base64Decode(b64);
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<void> _act(bool approve) async {
     setState(() => _busy = true);
     try {
@@ -733,7 +720,6 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
   Widget build(BuildContext context) {
     final r = widget.request;
     final cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-    final bytes = _imageBytes;
     final isPending = r.status == 'pending';
     return AlertDialog(
       backgroundColor: AppColors.surface,
@@ -757,12 +743,7 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
                 constraints: const BoxConstraints(maxHeight: 320),
                 decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
                 clipBehavior: Clip.antiAlias,
-                child: bytes != null
-                    ? Image.memory(bytes, fit: BoxFit.contain)
-                    : const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('No receipt image available', style: TextStyle(color: AppColors.textMuted)),
-                      ),
+                child: ReceiptImage(source: r.receiptImage),
               ),
               if (isPending) ...[
                 const SizedBox(height: 16),
