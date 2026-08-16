@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 
 void main() {
+  setUrlStrategy(const HashUrlStrategy());
   runApp(const AOneGo9AdminApp());
 }
 

@@ -251,6 +251,11 @@ class AdminRepository {
     await ApiClient.post('/subscriptions/admin/requests/$id/reject', {'admin_note': adminNote});
   }
 
+  // POST /subscriptions/admin/vendors/{id}/assign
+  Future<void> assignVendorPlan(String vendorId, String planId) async {
+    await ApiClient.post('/subscriptions/admin/vendors/$vendorId/assign', {'plan_id': planId});
+  }
+
   // ── Private helpers ───────────────────────────────────────────
 
   static Review _reviewFromJson(Map j) => Review(

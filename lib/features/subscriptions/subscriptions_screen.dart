@@ -219,9 +219,19 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Pricing Tiers',
-                style: AppType.display(size: 18, weight: FontWeight.w600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pricing Tiers',
+                    style: AppType.display(size: 18, weight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Plans with audience Vendors or Both appear instantly in the vendor app for upgrade.',
+                    style: AppType.body(size: 12.5, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
             ),
             ElevatedButton.icon(

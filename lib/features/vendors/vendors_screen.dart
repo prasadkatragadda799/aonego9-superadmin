@@ -287,14 +287,6 @@ class _VendorsScreenState extends State<VendorsScreen> {
       ),
     );
   }
-
-  Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 150, child: Text(k, style: const TextStyle(color: AppColors.textMuted, fontSize: 13))),
-          Expanded(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5))),
-        ]),
-      );
 }
 
 class _VendorDetailSheet extends StatefulWidget {
@@ -318,12 +310,63 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet> {
   Map<String, dynamic>? _profileDetails;
   bool _loadingPortfolio = true;
   bool _loadingDetails = true;
+  List<SubscriptionPlan> _plans = [];
+  String? _selectedPlanId;
+  bool _assigningPlan = false;
+  late String _planLabel = widget.vendor.plan;
 
   @override
   void initState() {
     super.initState();
     _loadPortfolio();
     _loadProfileDetails();
+    _loadPlans();
+  }
+
+  Future<void> _loadPlans() async {
+    try {
+      final plans = await widget.repo.subscriptionPlans();
+      if (!mounted) return;
+      final vendorPlans = plans.where((p) => p.audience == 'vendor' || p.audience == 'both').toList();
+      SubscriptionPlan? matched;
+      for (final p in vendorPlans) {
+        if (p.name.toLowerCase() == widget.vendor.plan.toLowerCase()) {
+          matched = p;
+          break;
+        }
+      }
+      setState(() {
+        _plans = vendorPlans;
+        _selectedPlanId = matched?.id ?? (vendorPlans.isNotEmpty ? vendorPlans.first.id : null);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _assignPlan() async {
+    final planId = _selectedPlanId;
+    if (planId == null || _assigningPlan) return;
+    setState(() => _assigningPlan = true);
+    try {
+      await widget.repo.assignVendorPlan(widget.vendor.id, planId);
+      final plan = _plans.firstWhere((p) => p.id == planId);
+      if (!mounted) return;
+      setState(() {
+        _planLabel = plan.name;
+        _assigningPlan = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.vendor.company} is now on ${plan.name}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _assigningPlan = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Assign failed: ${e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\\(\\d+\\):\\s*'), '')}'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   Future<void> _loadProfileDetails() async {
@@ -445,7 +488,38 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet> {
             _kv('Email', v.email),
             _kv('Phone', v.phone),
             _kv('City', v.city),
-            _kv('Plan', '${v.plan} subscription'),
+            _kv('Plan', '$_planLabel subscription'),
+            if (_plans.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Assign subscription', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedPlanId,
+                    decoration: const InputDecoration(labelText: 'Vendor plan'),
+                    dropdownColor: AppColors.surfaceAlt,
+                    items: [
+                      for (final p in _plans)
+                        DropdownMenuItem(value: p.id, child: Text('${p.name} · ₹${p.price.toInt()}/${p.period}')),
+                    ],
+                    onChanged: _assigningPlan ? null : (v) => setState(() => _selectedPlanId = v),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _assigningPlan ? null : _assignPlan,
+                  child: _assigningPlan
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1A1407)))
+                      : const Text('Apply'),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              const Text(
+                'Vendor app updates immediately with this plan and upgrade options.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+            ],
             _kv('KYC', v.kycVerified ? 'Verified' : 'Not verified'),
             _kv('Rating', v.rating == 0 ? '—' : '${v.rating} ★'),
             _kv('Total bookings', '${v.totalBookings}'),

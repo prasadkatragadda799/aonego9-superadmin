@@ -24,9 +24,11 @@ final appRouter = GoRouter(
     final loggedIn = await ApiClient.isLoggedIn();
     final loggingIn = state.matchedLocation == '/login';
     if (!loggedIn && !loggingIn) return '/login';
+    if (loggedIn && state.matchedLocation == '/') return '/dashboard';
     return null;
   },
   routes: [
+    GoRoute(path: '/', redirect: (_, __) => '/dashboard'),
     GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
     ShellRoute(
       builder: (context, state, child) => AppShell(currentRoute: state.uri.path, child: child),
