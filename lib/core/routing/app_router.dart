@@ -12,6 +12,7 @@ import '../../features/subscriptions/subscriptions_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
 import '../../features/support/support_screen.dart';
 import '../../features/cms/cms_screen.dart';
+import '../../features/cms/newsletter_admin_screen.dart';
 import '../../features/events/events_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../data/api/api_client.dart';
@@ -43,6 +44,7 @@ final appRouter = GoRouter(
         GoRoute(path: '/reviews', builder: (_, __) => const ReviewsScreen()),
         GoRoute(path: '/support', builder: (_, __) => const SupportScreen()),
         GoRoute(path: '/cms', builder: (_, __) => const CmsScreen()),
+        GoRoute(path: '/newsletter', builder: (_, __) => const NewsletterAdminScreen()),
         GoRoute(path: '/events', builder: (_, __) => const EventsScreen()),
         GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       ],

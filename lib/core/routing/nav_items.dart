@@ -23,6 +23,7 @@ const adminNav = <NavItem>[
   NavItem('Support', Icons.support_agent_outlined, '/support', section: 'Moderation'),
 
   NavItem('Events & Poster', Icons.celebration_outlined, '/events', section: 'Platform'),
+  NavItem('Newsletter', Icons.auto_stories_outlined, '/newsletter', section: 'Platform'),
   NavItem('CMS & Content', Icons.web_outlined, '/cms', section: 'Platform'),
   NavItem('Settings', Icons.settings_outlined, '/settings', section: 'Platform'),
 ];

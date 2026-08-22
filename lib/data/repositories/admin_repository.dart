@@ -187,6 +187,34 @@ class AdminRepository {
   // DELETE /api/v1/events/admin/{id}
   Future<void> deleteEvent(String id) => ApiClient.delete('/events/admin/$id');
 
+  // ── Newsletter digest ─────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> newsletters() async {
+    try {
+      final data = await ApiClient.get('/cms/newsletters');
+      if (data is List) return data.cast<Map<String, dynamic>>();
+      if (data is Map && data['items'] is List) {
+        return (data['items'] as List).cast<Map<String, dynamic>>();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  Future<void> publishNewsletter(Map<String, dynamic> payload) async {
+    await ApiClient.post('/cms/newsletters', payload);
+  }
+
+  Future<List<Map<String, dynamic>>> newsletterContributions() async {
+    try {
+      final data = await ApiClient.get('/cms/newsletters/contributions');
+      if (data is List) return data.cast<Map<String, dynamic>>();
+      if (data is Map && data['items'] is List) {
+        return (data['items'] as List).cast<Map<String, dynamic>>();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
   // ── Analytics ─────────────────────────────────────────────────
 
   // GET /api/v1/analytics/admin/trends
