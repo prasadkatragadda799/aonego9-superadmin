@@ -10,8 +10,12 @@ import '../api/api_client.dart';
 class AdminRepository {
   // ── Auth ─────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    final data = await ApiClient.post('/auth/login/admin', {'email': email, 'password': password}, auth: false);
+  Future<Map<String, dynamic>> login(String email, String password, {String city = ''}) async {
+    final data = await ApiClient.post('/auth/login/admin', {
+      'email': email,
+      'password': password,
+      if (city.isNotEmpty) 'city': city,
+    }, auth: false);
     await ApiClient.saveTokens(data['access_token'], data['refresh_token']);
     return data;
   }
@@ -204,6 +208,14 @@ class AdminRepository {
     await ApiClient.post('/cms/newsletters', payload);
   }
 
+  Future<void> updateNewsletter(String id, Map<String, dynamic> payload) async {
+    await ApiClient.put('/cms/newsletters/$id', payload);
+  }
+
+  Future<void> deleteNewsletter(String id) async {
+    await ApiClient.delete('/cms/newsletters/$id');
+  }
+
   Future<List<Map<String, dynamic>>> newsletterContributions() async {
     try {
       final data = await ApiClient.get('/cms/newsletters/contributions');
@@ -282,6 +294,23 @@ class AdminRepository {
   // POST /subscriptions/admin/vendors/{id}/assign
   Future<void> assignVendorPlan(String vendorId, String planId) async {
     await ApiClient.post('/subscriptions/admin/vendors/$vendorId/assign', {'plan_id': planId});
+  }
+
+  // ── Advance payment requests ───────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> advanceRequests({String? status}) async {
+    final q = status != null ? '?status=$status' : '';
+    final data = await ApiClient.get('/bookings/admin/advance$q');
+    if (data is List) return data.cast<Map<String, dynamic>>();
+    return const [];
+  }
+
+  Future<void> approveAdvance(String id, {String adminNote = ''}) async {
+    await ApiClient.post('/bookings/admin/advance/$id/approve', {'admin_note': adminNote});
+  }
+
+  Future<void> rejectAdvance(String id, {String adminNote = ''}) async {
+    await ApiClient.post('/bookings/admin/advance/$id/reject', {'admin_note': adminNote});
   }
 
   // ── Private helpers ───────────────────────────────────────────

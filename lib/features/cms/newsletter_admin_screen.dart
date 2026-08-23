@@ -60,6 +60,73 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     });
   }
 
+  Future<void> _deleteIssue(Map<String, dynamic> issue) async {
+    final id = issue['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete issue?'),
+        content: Text('Remove “${issue['title']}” from the user digest?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _repo.deleteNewsletter(id);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _issues = _issues.where((n) => n['id']?.toString() != id).toList());
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Issue removed')));
+  }
+
+  Future<void> _editIssue(Map<String, dynamic> issue) async {
+    final title = TextEditingController(text: issue['title']?.toString() ?? '');
+    final body = TextEditingController(text: issue['body']?.toString() ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Edit issue'),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: title, decoration: const InputDecoration(labelText: 'Headline')),
+            const SizedBox(height: 12),
+            TextField(controller: body, maxLines: 4, decoration: const InputDecoration(labelText: 'Body')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final id = issue['id']?.toString();
+    if (id == null) return;
+    final payload = {'title': title.text.trim(), 'body': body.text.trim()};
+    try {
+      await _repo.updateNewsletter(id, payload);
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved locally — API update failed')));
+      setState(() {
+        final i = _issues.indexWhere((n) => n['id']?.toString() == id);
+        if (i >= 0) _issues[i] = {..._issues[i], ...payload};
+      });
+    }
+  }
+
   Future<void> _publish() async {
     if (_author.text.trim().isEmpty ||
         _email.text.trim().isEmpty ||
@@ -252,6 +319,18 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
                             ),
                           ]),
                         ),
+                        if (n['id'] != null) ...[
+                          IconButton(
+                            tooltip: 'Edit',
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            onPressed: () => _editIssue(n),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete',
+                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                            onPressed: () => _deleteIssue(n),
+                          ),
+                        ],
                       ],
                     ),
                   ),

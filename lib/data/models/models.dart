@@ -4,6 +4,8 @@
 // these straight to API responses with no UI changes.
 // ─────────────────────────────────────────────────────────────
 
+import '../core/utils/date_util.dart';
+
 enum ApprovalStatus { pending, approved, rejected, suspended }
 
 enum BookingStatus { requested, confirmed, inProgress, completed, cancelled, disputed }
@@ -40,6 +42,7 @@ class Vendor {
   final int totalBookings;
   final double totalEarnings;
   final DateTime joinedAt;
+  final DateTime? lastLoginAt;
   final String avatarUrl;
   final String plan; // Starter | Pro | Elite — subscription tier
 
@@ -57,6 +60,7 @@ class Vendor {
     required this.totalBookings,
     required this.totalEarnings,
     required this.joinedAt,
+    this.lastLoginAt,
     this.avatarUrl = '',
     this.plan = 'Starter',
   });
@@ -70,12 +74,15 @@ class Vendor {
         city: j['city'] ?? '',
         category: j['category'] ?? '',
         status: _enumFromString(ApprovalStatus.values, j['status'], ApprovalStatus.pending),
-        kycVerified: j['kycVerified'] ?? false,
+        kycVerified: j['kycVerified'] ?? j['kyc_verified'] ?? false,
         rating: (j['rating'] ?? 0).toDouble(),
-        totalBookings: j['totalBookings'] ?? 0,
-        totalEarnings: (j['totalEarnings'] ?? 0).toDouble(),
-        joinedAt: DateTime.tryParse(j['joinedAt'] ?? '') ?? DateTime.now(),
-        avatarUrl: j['avatarUrl'] ?? '',
+        totalBookings: j['totalBookings'] ?? j['total_bookings'] ?? 0,
+        totalEarnings: (j['totalEarnings'] ?? j['total_earnings'] ?? 0).toDouble(),
+        joinedAt: parseApiDateTime(j['joinedAt']?.toString() ?? j['joined_at']?.toString() ?? ''),
+        lastLoginAt: j['last_login_at'] == null && j['lastLoginAt'] == null
+            ? null
+            : parseApiDateTime((j['last_login_at'] ?? j['lastLoginAt']).toString()),
+        avatarUrl: j['avatarUrl'] ?? j['avatar_url'] ?? '',
         plan: j['plan'] ?? 'Starter',
       );
 
@@ -485,8 +492,10 @@ class SubscriptionRequest {
         receiptImage: j['receipt_image'] ?? '',
         status: j['status'] ?? 'pending',
         adminNote: j['admin_note'] ?? '',
-        createdAt: DateTime.tryParse(j['created_at'] ?? '') ?? DateTime.now(),
-        reviewedAt: j['reviewed_at'] == null ? null : DateTime.tryParse(j['reviewed_at']),
+        createdAt: parseApiDateTime(j['created_at']?.toString() ?? j['createdAt']?.toString() ?? ''),
+        reviewedAt: j['reviewed_at'] == null && j['reviewedAt'] == null
+            ? null
+            : parseApiDateTime((j['reviewed_at'] ?? j['reviewedAt']).toString()),
       );
 }
 

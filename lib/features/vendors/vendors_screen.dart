@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/date_util.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/responsive/responsive.dart';
@@ -525,6 +526,8 @@ class _VendorDetailSheetState extends State<_VendorDetailSheet> {
             _kv('Total bookings', '${v.totalBookings}'),
             _kv('Lifetime earnings', cur.format(v.totalEarnings)),
             _kv('Joined', DateFormat('d MMM yyyy').format(v.joinedAt)),
+            if (v.lastLoginAt != null)
+              _kv('Last vendor login', formatIstDateTime(v.lastLoginAt!)),
             const SizedBox(height: 18),
             Text('Portfolio', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),

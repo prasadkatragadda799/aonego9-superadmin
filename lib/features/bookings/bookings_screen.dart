@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/date_util.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/responsive/responsive.dart';
@@ -17,6 +18,7 @@ class BookingsScreen extends StatefulWidget {
 class _BookingsScreenState extends State<BookingsScreen> {
   final _repo = AdminRepository();
   List<Booking> _all = [];
+  List<Map<String, dynamic>> _advances = [];
   bool _loading = true;
   String _query = '';
   BookingStatus? _filter;
@@ -29,9 +31,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   Future<void> _load() async {
     final b = await _repo.bookings();
+    final adv = await _repo.advanceRequests(status: 'pending');
     if (!mounted) return;
     setState(() {
       _all = b;
+      _advances = adv;
       _loading = false;
     });
   }
@@ -122,8 +126,43 @@ class _BookingsScreenState extends State<BookingsScreen> {
               ),
           ]),
         ),
+        if (_advances.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          SectionCard(
+            title: 'Advance payments — pending approval',
+            child: Column(
+              children: [
+                for (final a in _advances)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${a['inquiry_ref'] ?? a['booking_id']} · ${a['client_name'] ?? 'Client'}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                    subtitle: Text(
+                      '${a['vendor_name'] ?? ''} · ₹${(a['amount'] ?? 5000).toString()} · ${formatIstDateTime(parseApiDateTime(a['created_at']?.toString() ?? ''))}',
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      TextButton(onPressed: () => _rejectAdvance(a['id'].toString()), child: const Text('Reject')),
+                      ElevatedButton(onPressed: () => _approveAdvance(a['id'].toString()), child: const Text('Approve')),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _approveAdvance(String id) async {
+    await _repo.approveAdvance(id);
+    await _load();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Advance approved — booking updated')));
+  }
+
+  Future<void> _rejectAdvance(String id) async {
+    await _repo.rejectAdvance(id, adminNote: 'Receipt could not be verified');
+    await _load();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Advance rejected')));
   }
 
   void _resolve(Booking b) {

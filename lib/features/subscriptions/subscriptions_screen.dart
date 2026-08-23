@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../../core/utils/date_util.dart';
 
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
@@ -462,7 +462,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
             ),
             Expanded(flex: 2, child: Text(r.planName, style: const TextStyle(fontSize: 13.5))),
             Expanded(flex: 2, child: Text(cur.format(r.amount), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600))),
-            Expanded(flex: 2, child: Text(DateFormat('d MMM yyyy').format(r.createdAt), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+            Expanded(flex: 2, child: Text(formatIstDate(r.createdAt), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
             Expanded(flex: 2, child: StatusChip(label: label, color: color)),
             Expanded(
               flex: 2,
@@ -742,7 +742,7 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _kv('Amount', cur.format(r.amount)),
-              _kv('Submitted', DateFormat('d MMM yyyy, h:mm a').format(r.createdAt)),
+              _kv('Submitted', formatIstDateTime(r.createdAt)),
               _kv('Status', r.status[0].toUpperCase() + r.status.substring(1)),
               if (r.adminNote.isNotEmpty) _kv('Admin note', r.adminNote),
               const SizedBox(height: 12),

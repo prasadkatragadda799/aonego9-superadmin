@@ -15,15 +15,24 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _city = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
   String _error = '';
   final _repo = AdminRepository();
 
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _city.dispose();
+    super.dispose();
+  }
+
   Future<void> _login() async {
     setState(() { _loading = true; _error = ''; });
     try {
-      await _repo.login(_email.text.trim(), _password.text);
+      await _repo.login(_email.text.trim(), _password.text, city: _city.text.trim());
       if (mounted) context.go('/dashboard');
     } catch (e) {
       setState(() { _error = e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), ''); });
@@ -37,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final form = _LoginForm(
       email: _email,
       password: _password,
+      city: _city,
       obscure: _obscure,
       loading: _loading,
       error: _error,
@@ -130,13 +140,14 @@ class _BrandPanel extends StatelessWidget {
 }
 
 class _LoginForm extends StatelessWidget {
-  final TextEditingController email, password;
+  final TextEditingController email, password, city;
   final bool obscure, loading;
   final String error;
   final VoidCallback onToggle, onSubmit;
   const _LoginForm({
     required this.email,
     required this.password,
+    required this.city,
     required this.obscure,
     required this.loading,
     required this.error,
@@ -150,9 +161,25 @@ class _LoginForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Welcome back', style: AppType.display(size: 28, weight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text('Sign in to the Super Admin console', style: AppType.body(color: AppColors.textSecondary)),
+        Row(children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+            ),
+            child: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.gold, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Welcome back', style: AppType.display(size: 28, weight: FontWeight.w600)),
+              Text('Sign in to the Super Admin console', style: AppType.body(color: AppColors.textSecondary)),
+            ]),
+          ),
+        ]),
         const SizedBox(height: 32),
         if (error.isNotEmpty) ...[
           Container(
@@ -179,6 +206,10 @@ class _LoginForm extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 18),
+        const Text('City (for city-scoped admins)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const SizedBox(height: 8),
+        TextField(controller: city, decoration: const InputDecoration(hintText: 'Mumbai — leave blank for all cities')),
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerRight,
