@@ -37,7 +37,7 @@ class _SupportScreenState extends State<SupportScreen> {
     return ListView(
       padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
       children: [
-        PageHeader(title: 'Support', subtitle: 'Vendor and user support tickets'),
+        const PageHeader(title: 'Support', subtitle: 'Vendor and user support tickets'),
         const SizedBox(height: 24),
         GridView.count(
           crossAxisCount: cols,

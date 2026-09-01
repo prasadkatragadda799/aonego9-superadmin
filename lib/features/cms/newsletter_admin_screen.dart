@@ -219,14 +219,14 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Poster credentials', style: const TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
+          const Text('Poster credentials', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _field('Author name', _author, 'As it should appear on the digest'),
           _field('Work email', _email, 'desk@aonego9.com'),
           _field('Organisation / desk', _org, 'AOneGo9 Casting Desk'),
           _field('Credential or site URL', _cred, 'https://…'),
           const Divider(height: 32),
-          Text('The story', style: const TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
+          const Text('The story', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

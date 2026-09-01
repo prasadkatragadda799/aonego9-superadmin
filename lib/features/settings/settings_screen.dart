@@ -27,7 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
       children: [
-        PageHeader(title: 'Settings', subtitle: 'Platform configuration and admin team'),
+        const PageHeader(title: 'Settings', subtitle: 'Platform configuration and admin team'),
         const SizedBox(height: 24),
         ResponsiveLayout(
           mobile: (_) => Column(children: [_platformCard(), const SizedBox(height: 16), _teamCard()]),

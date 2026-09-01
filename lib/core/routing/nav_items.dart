@@ -20,10 +20,15 @@ const adminNav = <NavItem>[
   NavItem('Subscriptions', Icons.workspace_premium_outlined, '/subscriptions', section: 'Marketplace'),
 
   NavItem('Reviews', Icons.star_outline, '/reviews', section: 'Moderation'),
+  NavItem('Leads & Applications', Icons.inbox_outlined, '/leads', section: 'Moderation'),
   NavItem('Support', Icons.support_agent_outlined, '/support', section: 'Moderation'),
 
   NavItem('Events & Poster', Icons.celebration_outlined, '/events', section: 'Platform'),
+  NavItem('Workshops & Webinars', Icons.school_outlined, '/sessions', section: 'Platform'),
   NavItem('Newsletter', Icons.auto_stories_outlined, '/newsletter', section: 'Platform'),
+  NavItem('Ads & Promotions', Icons.campaign_outlined, '/ads', section: 'Platform'),
+  NavItem('Partners & Team', Icons.handshake_outlined, '/directory', section: 'Platform'),
+  NavItem('Social Accounts', Icons.share_outlined, '/social', section: 'Platform'),
   NavItem('CMS & Content', Icons.web_outlined, '/cms', section: 'Platform'),
   NavItem('Settings', Icons.settings_outlined, '/settings', section: 'Platform'),
 ];

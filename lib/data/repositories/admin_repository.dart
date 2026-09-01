@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import '../models/directory_models.dart';
 import '../api/api_client.dart';
 
 // ignore: constant_identifier_names
@@ -314,6 +315,122 @@ class AdminRepository {
   }
 
   // ── Private helpers ───────────────────────────────────────────
+
+  // ── Directory desks ───────────────────────────────────────────
+  // Ads, sessions, partners, team, leads and social accounts. These back the
+  // content the user app renders, and every read degrades to an empty list
+  // rather than throwing — a desk whose backend route isn't live yet must
+  // still open to a usable (empty) screen instead of a red error page.
+
+  Future<List<Map<String, dynamic>>> _list(List<String> paths) async {
+    for (final path in paths) {
+      try {
+        final data = await ApiClient.get(path);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        if (data is Map && data['items'] is List) {
+          return (data['items'] as List).cast<Map<String, dynamic>>();
+        }
+      } catch (_) {
+        // try the next candidate path
+      }
+    }
+    return const [];
+  }
+
+  // ── Ads ──
+  Future<List<AdCreative>> ads() async =>
+      (await _list(['/cms/ads', '/browse/ads'])).map(AdCreative.fromJson).toList();
+
+  Future<void> saveAd(AdCreative ad) async {
+    if (ad.id.isEmpty) {
+      await ApiClient.post('/cms/ads', ad.toJson());
+    } else {
+      await ApiClient.put('/cms/ads/${ad.id}', ad.toJson());
+    }
+  }
+
+  Future<void> setAdActive(String id, bool active) =>
+      ApiClient.patch('/cms/ads/$id', {'active': active});
+
+  Future<void> deleteAd(String id) => ApiClient.delete('/cms/ads/$id');
+
+  // ── Sessions (workshops & webinars) ──
+  Future<List<Session>> sessions() async =>
+      (await _list(['/sessions/admin', '/sessions'])).map(Session.fromJson).toList();
+
+  Future<void> saveSession(Session s) async {
+    if (s.id.isEmpty) {
+      await ApiClient.post('/sessions', s.toJson());
+    } else {
+      await ApiClient.put('/sessions/${s.id}', s.toJson());
+    }
+  }
+
+  Future<void> setSessionPublished(String id, bool published) =>
+      ApiClient.patch('/sessions/$id', {'published': published});
+
+  Future<void> deleteSession(String id) => ApiClient.delete('/sessions/$id');
+
+  // ── Partners ──
+  Future<List<LogoPartner>> partners() async =>
+      (await _list(['/cms/partners', '/browse/partners'])).map(LogoPartner.fromJson).toList();
+
+  Future<void> savePartner(LogoPartner p) async {
+    if (p.id.isEmpty) {
+      await ApiClient.post('/cms/partners', p.toJson());
+    } else {
+      await ApiClient.put('/cms/partners/${p.id}', p.toJson());
+    }
+  }
+
+  Future<void> setPartnerPublished(String id, bool published) =>
+      ApiClient.patch('/cms/partners/$id', {'published': published});
+
+  Future<void> deletePartner(String id) => ApiClient.delete('/cms/partners/$id');
+
+  // ── Team ──
+  Future<List<TeamMember>> team() async =>
+      (await _list(['/cms/team', '/browse/team'])).map(TeamMember.fromJson).toList();
+
+  Future<void> saveTeamMember(TeamMember m) async {
+    if (m.id.isEmpty) {
+      await ApiClient.post('/cms/team', m.toJson());
+    } else {
+      await ApiClient.put('/cms/team/${m.id}', m.toJson());
+    }
+  }
+
+  Future<void> setTeamPublished(String id, bool published) =>
+      ApiClient.patch('/cms/team/$id', {'published': published});
+
+  Future<void> deleteTeamMember(String id) => ApiClient.delete('/cms/team/$id');
+
+  // ── Leads (contact / join / apply) ──
+  Future<List<Lead>> leads({String? kind, String? status}) async {
+    final q = <String>[
+      if (kind != null && kind.isNotEmpty) 'kind=$kind',
+      if (status != null && status.isNotEmpty) 'status=$status',
+    ].join('&');
+    final suffix = q.isEmpty ? '' : '?$q';
+    return (await _list(['/browse/leads$suffix', '/cms/leads$suffix'])).map(Lead.fromJson).toList();
+  }
+
+  Future<void> setLeadStatus(String id, String status) =>
+      ApiClient.patch('/browse/leads/$id', {'status': status});
+
+  // ── Social accounts ──
+  Future<List<SocialAccount>> socialAccounts() async =>
+      (await _list(['/cms/social', '/settings/social'])).map(SocialAccount.fromJson).toList();
+
+  Future<void> saveSocialAccount(SocialAccount a) async {
+    if (a.id.isEmpty) {
+      await ApiClient.post('/cms/social', a.toJson());
+    } else {
+      await ApiClient.put('/cms/social/${a.id}', a.toJson());
+    }
+  }
+
+  Future<void> deleteSocialAccount(String id) => ApiClient.delete('/cms/social/$id');
 
   static Review _reviewFromJson(Map j) => Review(
         id: j['id'],

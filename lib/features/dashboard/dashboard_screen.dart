@@ -111,7 +111,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pts = _revenue ?? [];
     return SectionCard(
       title: 'Revenue Trend (₹ Cr)',
-      actions: [StatusChip(label: 'Last 6 months', color: AppColors.info)],
+      actions: const [StatusChip(label: 'Last 6 months', color: AppColors.info)],
       child: SizedBox(
         height: 240,
         child: LineChart(

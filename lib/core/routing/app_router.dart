@@ -14,6 +14,11 @@ import '../../features/support/support_screen.dart';
 import '../../features/cms/cms_screen.dart';
 import '../../features/cms/newsletter_admin_screen.dart';
 import '../../features/events/events_screen.dart';
+import '../../features/sessions/sessions_admin_screen.dart';
+import '../../features/ads/ads_screen.dart';
+import '../../features/directory/directory_screen.dart';
+import '../../features/leads/leads_screen.dart';
+import '../../features/social/social_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../data/api/api_client.dart';
 
@@ -46,6 +51,11 @@ final appRouter = GoRouter(
         GoRoute(path: '/cms', builder: (_, __) => const CmsScreen()),
         GoRoute(path: '/newsletter', builder: (_, __) => const NewsletterAdminScreen()),
         GoRoute(path: '/events', builder: (_, __) => const EventsScreen()),
+        GoRoute(path: '/sessions', builder: (_, __) => const SessionsAdminScreen()),
+        GoRoute(path: '/ads', builder: (_, __) => const AdsScreen()),
+        GoRoute(path: '/directory', builder: (_, __) => const DirectoryScreen()),
+        GoRoute(path: '/leads', builder: (_, __) => const LeadsScreen()),
+        GoRoute(path: '/social', builder: (_, __) => const SocialScreen()),
         GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       ],
     ),
