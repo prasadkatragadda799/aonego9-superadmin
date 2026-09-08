@@ -8,13 +8,19 @@ const String kBaseUrl = 'https://aonego9-backend.onrender.com/api/v1';
 class ApiClient {
   static const _tokenKey = 'admin_access_token';
   static const _refreshKey = 'admin_refresh_token';
+  static const _emailKey = 'admin_email';
   static String? _cachedToken;
+  static String? _cachedEmail;
 
-  static Future<void> saveTokens(String access, String refresh) async {
+  static Future<void> saveTokens(String access, String refresh, {String? email}) async {
     _cachedToken = access;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, access);
     await prefs.setString(_refreshKey, refresh);
+    if (email != null && email.isNotEmpty) {
+      _cachedEmail = email;
+      await prefs.setString(_emailKey, email);
+    }
   }
 
   static Future<String?> getAccessToken() async {
@@ -24,11 +30,20 @@ class ApiClient {
     return _cachedToken;
   }
 
+  static Future<String?> getEmail() async {
+    if (_cachedEmail != null) return _cachedEmail;
+    final prefs = await SharedPreferences.getInstance();
+    _cachedEmail = prefs.getString(_emailKey);
+    return _cachedEmail;
+  }
+
   static Future<void> clearTokens() async {
     _cachedToken = null;
+    _cachedEmail = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_refreshKey);
+    await prefs.remove(_emailKey);
   }
 
   static Future<bool> isLoggedIn() async => (await getAccessToken()) != null;

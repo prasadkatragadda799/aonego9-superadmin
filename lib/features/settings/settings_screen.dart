@@ -15,12 +15,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _emailAlerts = true;
   bool _payoutHold = true;
 
-  final _admins = const [
-    ('Super Admin', 'admin@aonego9.com', 'Owner'),
-    ('Meera Iyer', 'meera@aonego9.com', 'Operations'),
-    ('Rahul Dev', 'rahul@aonego9.com', 'Finance'),
-    ('Sana Q', 'sana@aonego9.com', 'Support'),
-  ];
+  /// No invented roster — invite flow / admin-users API can fill this later.
+  final List<(String, String, String)> _admins = const [];
 
   @override
   Widget build(BuildContext context) {
@@ -72,23 +68,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return SectionCard(
       title: 'Admin Team',
       actions: [TextButton(onPressed: () {}, child: const Text('Invite'))],
-      child: Column(
-        children: [
-          for (final a in _admins)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(children: [
-                InitialsAvatar(name: a.$1, size: 36),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(a.$1, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                  Text(a.$2, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                ])),
-                StatusChip(label: a.$3, color: AppColors.info),
-              ]),
+      child: _admins.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No admin accounts listed here yet. Use Invite when the desk is ready to add operators.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.45),
+              ),
+            )
+          : Column(
+              children: [
+                for (final a in _admins)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(children: [
+                      InitialsAvatar(name: a.$1, size: 36),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(a.$1, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        Text(a.$2, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      ])),
+                      StatusChip(label: a.$3, color: AppColors.info),
+                    ]),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 }

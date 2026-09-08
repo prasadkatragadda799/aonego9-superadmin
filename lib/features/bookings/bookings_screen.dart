@@ -137,7 +137,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text('${a['inquiry_ref'] ?? a['booking_id']} · ${a['client_name'] ?? 'Client'}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                     subtitle: Text(
-                      '${a['vendor_name'] ?? ''} · ₹${(a['amount'] ?? 5000).toString()} · ${formatIstDateTime(parseApiDateTime(a['created_at']?.toString() ?? ''))}',
+                      '${a['vendor_name'] ?? ''} · ${a['amount'] != null ? '₹${a['amount']}' : '—'} · ${formatIstDateTime(parseApiDateTime(a['created_at']?.toString() ?? ''))}',
                       style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [

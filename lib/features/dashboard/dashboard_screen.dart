@@ -62,7 +62,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: PageHeader(
             eyebrow: 'Platform Control',
             title: 'Dashboard',
-            subtitle: 'Platform overview · ${DateFormat('EEE, d MMM yyyy').format(DateTime(2026, 6, 16))}',
+            subtitle: 'Platform overview · ${DateFormat('EEE, d MMM yyyy').format(DateTime.now())}',
             actions: [
               OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.download, size: 18), label: const Text('Export')),
               ElevatedButton.icon(onPressed: () => context.go('/vendors'), icon: const Icon(Icons.add, size: 18), label: const Text('Review Vendors')),

@@ -5,6 +5,7 @@ import '../theme/typography.dart';
 import '../responsive/responsive.dart';
 import '../routing/nav_items.dart';
 import '../widgets/common.dart';
+import '../../data/api/api_client.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Adaptive shell that wraps every page.
@@ -251,15 +252,31 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 8),
           _iconBtn(Icons.help_outline),
           const SizedBox(width: 16),
-          const InitialsAvatar(name: 'Super Admin', size: 36),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Super Admin', style: AppType.body(weight: FontWeight.w600, size: 13)),
-              Text('admin@aonego9.com', style: AppType.body(color: AppColors.textMuted, size: 11)),
-            ],
+          FutureBuilder<String?>(
+            future: ApiClient.getEmail(),
+            builder: (context, snap) {
+              final email = snap.data?.trim();
+              final label = (email != null && email.isNotEmpty) ? email : 'Admin';
+              final name = label.contains('@') ? label.split('@').first : label;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InitialsAvatar(name: name, size: 36),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(name, style: AppType.body(weight: FontWeight.w600, size: 13)),
+                      Text(
+                        email ?? 'Signed in',
+                        style: AppType.body(color: AppColors.textMuted, size: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

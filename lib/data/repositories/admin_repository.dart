@@ -17,7 +17,7 @@ class AdminRepository {
       'password': password,
       if (city.isNotEmpty) 'city': city,
     }, auth: false);
-    await ApiClient.saveTokens(data['access_token'], data['refresh_token']);
+    await ApiClient.saveTokens(data['access_token'], data['refresh_token'], email: email);
     return data;
   }
 

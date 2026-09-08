@@ -283,7 +283,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     return SectionCard(
       title: 'Live on the user app',
       child: _issues.isEmpty
-          ? const Text('Nothing published yet. The user app still shows the seeded Friday digest until the first issue lands.',
+          ? const Text('Nothing published yet. The user app stays empty until the first issue lands.',
               style: TextStyle(color: AppColors.textMuted, height: 1.5, fontSize: 13))
           : Column(
               children: [

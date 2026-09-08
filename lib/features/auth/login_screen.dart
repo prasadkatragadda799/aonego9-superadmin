@@ -117,26 +117,11 @@ class _BrandPanel extends StatelessWidget {
                 style: AppType.body(size: 14, color: AppColors.textSecondary, height: 1.6),
               ),
             ),
-            const SizedBox(height: 40),
-            Row(children: [
-              _stat('7', 'Vendors'),
-              _stat('1.2k+', 'Talent'),
-              _stat('₹6.4Cr', 'GMV'),
-            ]),
           ],
         ),
       ),
     );
   }
-
-  Widget _stat(String v, String l) => Padding(
-        padding: const EdgeInsets.only(right: 36),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(v, style: AppType.display(color: AppColors.gold, size: 26, weight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(l, style: AppType.eyebrow(color: AppColors.textMuted, size: 11)),
-        ]),
-      );
 }
 
 class _LoginForm extends StatelessWidget {
