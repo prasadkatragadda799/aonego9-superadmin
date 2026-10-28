@@ -46,6 +46,38 @@ class ApiClient {
     await prefs.remove(_emailKey);
   }
 
+  static Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshKey);
+  }
+
+  static Future<bool> _refreshAccessToken() async {
+    final refresh = await getRefreshToken();
+    if (refresh == null || refresh.isEmpty) return false;
+    try {
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refresh}),
+      );
+      if (res.statusCode != 200) return false;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final email = await getEmail();
+      await saveTokens(
+        body['access_token'] as String,
+        body['refresh_token'] as String,
+        email: email,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _clearSessionOnAuthFailure(int statusCode) async {
+    if (statusCode == 401) await clearTokens();
+  }
+
   static Future<bool> isLoggedIn() async => (await getAccessToken()) != null;
 
   static Future<Map<String, String>> _headers({bool auth = true}) async {
@@ -69,20 +101,54 @@ class ApiClient {
     throw ApiException(res.statusCode, detail);
   }
 
-  static Future<dynamic> get(String path) async =>
-      _decode(await http.get(Uri.parse('$kBaseUrl$path'), headers: await _headers()));
+  static Future<dynamic> get(String path) async {
+    Future<http.Response> send() async =>
+        http.get(Uri.parse('$kBaseUrl$path'), headers: await _headers());
+    var res = await send();
+    if (res.statusCode == 401 && await _refreshAccessToken()) res = await send();
+    await _clearSessionOnAuthFailure(res.statusCode);
+    return _decode(res);
+  }
 
-  static Future<dynamic> post(String path, Map<String, dynamic> body, {bool auth = true}) async =>
-      _decode(await http.post(Uri.parse('$kBaseUrl$path'), headers: await _headers(auth: auth), body: jsonEncode(body)));
+  static Future<dynamic> post(String path, Map<String, dynamic> body, {bool auth = true}) async {
+    Future<http.Response> send() async => http.post(
+          Uri.parse('$kBaseUrl$path'),
+          headers: await _headers(auth: auth),
+          body: jsonEncode(body),
+        );
+    var res = await send();
+    if (auth && res.statusCode == 401 && await _refreshAccessToken()) res = await send();
+    if (auth) await _clearSessionOnAuthFailure(res.statusCode);
+    return _decode(res);
+  }
 
-  static Future<dynamic> put(String path, Map<String, dynamic> body) async =>
-      _decode(await http.put(Uri.parse('$kBaseUrl$path'), headers: await _headers(), body: jsonEncode(body)));
+  static Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    Future<http.Response> send() async =>
+        http.put(Uri.parse('$kBaseUrl$path'), headers: await _headers(), body: jsonEncode(body));
+    var res = await send();
+    if (res.statusCode == 401 && await _refreshAccessToken()) res = await send();
+    await _clearSessionOnAuthFailure(res.statusCode);
+    return _decode(res);
+  }
 
-  static Future<dynamic> patch(String path, [Map<String, dynamic>? body]) async =>
-      _decode(await http.patch(Uri.parse('$kBaseUrl$path'), headers: await _headers(), body: body != null ? jsonEncode(body) : null));
+  static Future<dynamic> patch(String path, [Map<String, dynamic>? body]) async {
+    Future<http.Response> send() async => http.patch(
+          Uri.parse('$kBaseUrl$path'),
+          headers: await _headers(),
+          body: body != null ? jsonEncode(body) : null,
+        );
+    var res = await send();
+    if (res.statusCode == 401 && await _refreshAccessToken()) res = await send();
+    await _clearSessionOnAuthFailure(res.statusCode);
+    return _decode(res);
+  }
 
   static Future<void> delete(String path) async {
-    final res = await http.delete(Uri.parse('$kBaseUrl$path'), headers: await _headers());
+    Future<http.Response> send() async =>
+        http.delete(Uri.parse('$kBaseUrl$path'), headers: await _headers());
+    var res = await send();
+    if (res.statusCode == 401 && await _refreshAccessToken()) res = await send();
+    await _clearSessionOnAuthFailure(res.statusCode);
     if (res.statusCode >= 300) _decode(res);
   }
 

@@ -30,7 +30,7 @@ final appRouter = GoRouter(
     final loggedIn = await ApiClient.isLoggedIn();
     final loggingIn = state.matchedLocation == '/login';
     if (!loggedIn && !loggingIn) return '/login';
-    if (loggedIn && state.matchedLocation == '/') return '/dashboard';
+    if (loggedIn && (loggingIn || state.matchedLocation == '/')) return '/dashboard';
     return null;
   },
   routes: [

@@ -29,12 +29,12 @@ class AdminRepository {
   Future<Map<String, num>> dashboardSummary() async {
     final data = await ApiClient.get('/analytics/admin/dashboard');
     return {
-      'totalVendors': data['total_vendors'] as num,
-      'pendingVendors': data['pending_approvals'] as num,
-      'totalUsers': data['total_users'] as num,
-      'activeBookings': data['active_bookings'] as num,
-      'revenue': data['total_revenue'] as num,
-      'disputes': data['disputes'] as num,
+      'totalVendors': (data['total_vendors'] as num?) ?? 0,
+      'pendingVendors': (data['pending_approvals'] as num?) ?? 0,
+      'totalUsers': (data['total_users'] as num?) ?? 0,
+      'activeBookings': (data['active_bookings'] as num?) ?? 0,
+      'revenue': (data['total_revenue'] as num?) ?? 0,
+      'disputes': (data['disputes'] as num?) ?? 0,
     };
   }
 

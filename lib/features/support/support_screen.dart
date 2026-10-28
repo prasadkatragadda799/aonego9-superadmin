@@ -73,10 +73,13 @@ class _SupportScreenState extends State<SupportScreen> {
                       tcell(t.id, color: AppColors.textMuted),
                       tcell(t.subject, weight: FontWeight.w600),
                       tcell(t.requester),
-                      StatusChip(label: t.priority[0].toUpperCase() + t.priority.substring(1), color: StatusUi.priority(t.priority)),
+                      StatusChip(
+                        label: t.priority.isEmpty ? '—' : t.priority[0].toUpperCase() + t.priority.substring(1),
+                        color: StatusUi.priority(t.priority),
+                      ),
                       tcell(DateFormat('d MMM').format(t.date)),
                       StatusChip(
-                        label: t.status[0].toUpperCase() + t.status.substring(1),
+                        label: t.status.isEmpty ? '—' : t.status[0].toUpperCase() + t.status.substring(1),
                         color: t.status == 'open' ? AppColors.danger : t.status == 'pending' ? AppColors.warning : AppColors.success,
                       ),
                     ];

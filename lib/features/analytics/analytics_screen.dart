@@ -15,21 +15,38 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   final _repo = AdminRepository();
   Map<String, List<KpiPoint>>? _data;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _repo.analytics().then((d) {
-      if (mounted) setState(() => _data = d);
-    });
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await _repo.analytics();
+      if (mounted) setState(() { _data = d; _error = null; });
+    } catch (e) {
+      if (mounted) setState(() { _data = null; _error = 'Could not load analytics.'; });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(_error!, style: const TextStyle(color: AppColors.textMuted)),
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: _load, child: const Text('Retry')),
+        ]),
+      );
+    }
     if (_data == null) return const LoadingView();
-    final revenue = _data!['revenue']!;
-    final signups = _data!['signups']!;
-    final share = _data!['categoryShare']!;
+    final revenue = _data!['revenue'] ?? [];
+    final signups = _data!['signups'] ?? [];
+    final share = _data!['categoryShare'] ?? [];
 
     return ListView(
       padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
@@ -66,6 +83,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _revenueBars(List<KpiPoint> pts) {
+    if (pts.isEmpty) {
+      return const SectionCard(title: 'Monthly Revenue (₹ Cr)', child: Text('No revenue data yet.', style: TextStyle(color: AppColors.textMuted)));
+    }
     final maxY = pts.map((e) => e.value).reduce((a, b) => a > b ? a : b) * 1.3;
     return SectionCard(
       title: 'Monthly Revenue (₹ Cr)',

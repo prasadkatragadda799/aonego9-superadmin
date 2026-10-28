@@ -20,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, num>? _summary;
   List<KpiPoint>? _revenue;
   List<Booking>? _recent;
+  String? _error;
 
   @override
   void initState() {
@@ -28,19 +29,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _load() async {
-    final s = await _repo.dashboardSummary();
-    final a = await _repo.analytics();
-    final b = await _repo.bookings();
-    if (!mounted) return;
-    setState(() {
-      _summary = s;
-      _revenue = a['revenue'];
-      _recent = b.take(5).toList();
-    });
+    setState(() => _error = null);
+    try {
+      final s = await _repo.dashboardSummary();
+      final a = await _repo.analytics();
+      final b = await _repo.bookings();
+      if (!mounted) return;
+      setState(() {
+        _summary = s;
+        _revenue = a['revenue'] ?? [];
+        _recent = b.take(5).toList();
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not load dashboard.');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(_error!, style: const TextStyle(color: AppColors.textMuted)),
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: _load, child: const Text('Retry')),
+        ]),
+      );
+    }
     if (_summary == null) return const LoadingView();
     final cur = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
 
