@@ -3,8 +3,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/typography.dart';
 import '../../core/responsive/responsive.dart';
+import '../../core/utils/file_saver.dart';
+import '../../core/widgets/app_shell.dart';
 import '../../core/widgets/common.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/models/models.dart';
 import '../../data/models/status_ui.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -18,9 +22,13 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _repo = AdminRepository();
   Map<String, num>? _summary;
-  List<KpiPoint>? _revenue;
-  List<Booking>? _recent;
+  List<KpiPoint> _revenue = [];
+  List<KpiPoint> _signups = [];
+  List<Booking> _recent = [];
   String? _error;
+
+  static final _cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  static final _compact = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
 
   @override
   void initState() {
@@ -31,196 +39,248 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      final s = await _repo.dashboardSummary();
-      final a = await _repo.analytics();
-      final b = await _repo.bookings();
+      final r = await Future.wait<Object?>([
+        _repo.dashboardSummary(),
+        _repo.analytics().catchError((_) => <String, List<KpiPoint>>{}),
+        _repo.bookings().catchError((_) => <Booking>[]),
+      ]);
+      AdminBadges.refresh(force: true);
       if (!mounted) return;
+      final a = r[1] as Map<String, List<KpiPoint>>;
       setState(() {
-        _summary = s;
+        _summary = r[0] as Map<String, num>;
         _revenue = a['revenue'] ?? [];
-        _recent = b.take(5).toList();
+        _signups = a['signups'] ?? [];
+        _recent = (r[2] as List<Booking>).take(6).toList();
       });
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load dashboard.');
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e, fallback: 'Could not load the dashboard.'));
     }
+  }
+
+  Future<void> _export() async {
+    final m = Toast.of(context);
+    final s = _summary!;
+    final rows = <List<Object?>>[
+      ['Total vendors', s['totalVendors']],
+      ['Pending vendor approvals', s['pendingVendors']],
+      ['Talent & users', s['totalUsers']],
+      ['Active bookings', s['activeBookings']],
+      ['Total revenue (INR)', s['revenue']],
+      ['Open disputes', s['disputes']],
+      for (final p in _revenue) ['Revenue ${p.label} (INR)', p.value],
+      for (final p in _signups) ['Signups ${p.label}', p.value],
+    ];
+    final csv = toCsv(['Metric', 'Value'], rows);
+    final dl = await saveTextFile('aonego9-platform-summary-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv', csv);
+    Toast.ok(m, dl ? 'Platform summary exported' : 'CSV copied to clipboard');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(_error!, style: const TextStyle(color: AppColors.textMuted)),
-          const SizedBox(height: 12),
-          OutlinedButton(onPressed: _load, child: const Text('Retry')),
-        ]),
-      );
-    }
+    if (_error != null && _summary == null) return ErrorView(message: _error!, onRetry: _load);
     if (_summary == null) return const LoadingView();
-    final cur = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
+    final s = _summary!;
 
     final cards = [
-      StatCard(label: 'Total Vendors', value: '${_summary!['totalVendors']}', icon: Icons.storefront_outlined, color: AppColors.gold),
-      StatCard(label: 'Pending Approvals', value: '${_summary!['pendingVendors']}', icon: Icons.pending_actions_outlined, color: AppColors.warning),
-      StatCard(label: 'Talent & Users', value: '${_summary!['totalUsers']}', icon: Icons.people_outline, color: AppColors.info),
-      StatCard(label: 'Active Bookings', value: '${_summary!['activeBookings']}', icon: Icons.event_available_outlined, color: AppColors.success),
-      StatCard(label: 'Total Revenue', value: cur.format(_summary!['revenue']), icon: Icons.payments_outlined, color: AppColors.goldLight),
-      StatCard(label: 'Open Disputes', value: '${_summary!['disputes']}', icon: Icons.gavel_outlined, color: AppColors.danger),
+      StatCard(label: 'Total vendors', value: '${s['totalVendors']}', icon: Icons.storefront_outlined, color: AppColors.gold, onTap: () => context.go('/vendors')),
+      StatCard(label: 'Pending approvals', value: '${s['pendingVendors']}', icon: Icons.pending_actions_outlined, color: AppColors.warning, onTap: () => context.go('/vendors?status=pending')),
+      StatCard(label: 'Talent & users', value: '${s['totalUsers']}', icon: Icons.people_outline, color: AppColors.info, onTap: () => context.go('/users')),
+      StatCard(label: 'Active bookings', value: '${s['activeBookings']}', icon: Icons.event_available_outlined, color: AppColors.success, onTap: () => context.go('/bookings')),
+      StatCard(label: 'Total revenue', value: _compact.format(s['revenue']), icon: Icons.payments_outlined, color: AppColors.goldLight, onTap: () => context.go('/payments')),
+      StatCard(label: 'Open disputes', value: '${s['disputes']}', icon: Icons.gavel_outlined, color: AppColors.danger, onTap: () => context.go('/bookings?status=disputed')),
     ];
 
-    final cols = responsiveValue(context, mobile: 1, tablet: 2, desktop: 3);
-
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         FadeUp(
           child: PageHeader(
-            eyebrow: 'Platform Control',
+            eyebrow: 'Platform control',
             title: 'Dashboard',
             subtitle: 'Platform overview · ${DateFormat('EEE, d MMM yyyy').format(DateTime.now())}',
             actions: [
-              OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.download, size: 18), label: const Text('Export')),
-              ElevatedButton.icon(onPressed: () => context.go('/vendors'), icon: const Icon(Icons.add, size: 18), label: const Text('Review Vendors')),
+              OutlinedButton.icon(onPressed: _export, icon: const Icon(Icons.download_outlined, size: 18), label: const Text('Export')),
+              ElevatedButton.icon(onPressed: () => context.go('/vendors?status=pending'), icon: const Icon(Icons.how_to_reg_outlined, size: 18), label: const Text('Review vendors')),
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        GridView.count(
-          crossAxisCount: cols,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: responsiveValue(context, mobile: 1.9, tablet: 1.7, desktop: 1.75),
-          children: [
-            for (var i = 0; i < cards.length; i++)
-              FadeUp(delay: Duration(milliseconds: 60 + i * 55), child: cards[i]),
-          ],
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
+        ResponsiveGrid(minTileWidth: 200, maxColumns: 3, children: [
+          for (var i = 0; i < cards.length; i++) FadeUp(delay: Duration(milliseconds: 60 + i * 50), child: cards[i]),
+        ]),
+        const SizedBox(height: 20),
         FadeUp(
           delay: const Duration(milliseconds: 220),
           child: ResponsiveLayout(
-            mobile: (_) => Column(children: [
-              _revenueCard(),
-              const SizedBox(height: 16),
-              _quickActions(),
+            mobile: (_) => Column(children: [_attentionCard(), const SizedBox(height: 16), _revenueCard()]),
+            tablet: (_) => Column(children: [_attentionCard(), const SizedBox(height: 16), _revenueCard()]),
+            desktop: (_) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(flex: 3, child: _revenueCard()),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: _attentionCard()),
             ]),
-            desktop: (_) => Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 2, child: _revenueCard()),
-                const SizedBox(width: 16),
-                Expanded(child: _quickActions()),
-              ],
-            ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         FadeUp(delay: const Duration(milliseconds: 300), child: _recentBookings()),
       ],
     );
   }
 
   Widget _revenueCard() {
-    final pts = _revenue ?? [];
+    final pts = _revenue;
+    final has = pts.any((p) => p.value > 0);
+    final maxV = pts.fold<double>(0, (m, p) => p.value > m ? p.value : m);
     return SectionCard(
-      title: 'Revenue Trend (₹ Cr)',
-      actions: const [StatusChip(label: 'Last 6 months', color: AppColors.info)],
+      title: 'Revenue trend',
+      actions: [
+        if (pts.isNotEmpty) StatusChip(label: 'Last ${pts.length} months', color: AppColors.info),
+        TextButton(onPressed: () => context.go('/analytics'), child: const Text('Analytics')),
+      ],
       child: SizedBox(
         height: 240,
-        child: LineChart(
-          LineChartData(
-            gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.border, strokeWidth: 1)),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, getTitlesWidget: (v, _) => Text(v.toInt().toString(), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)))),
-              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, _) {
-                final i = v.toInt();
-                if (i < 0 || i >= pts.length) return const SizedBox();
-                return Padding(padding: const EdgeInsets.only(top: 6), child: Text(pts[i].label, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)));
-              })),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: [for (var i = 0; i < pts.length; i++) FlSpot(i.toDouble(), pts[i].value)],
-                isCurved: true,
-                color: AppColors.gold,
-                barWidth: 3,
-                dotData: const FlDotData(show: true),
-                belowBarData: BarAreaData(show: true, gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.gold.withValues(alpha: 0.25), AppColors.gold.withValues(alpha: 0.0)])),
-              ),
-            ],
-          ),
-        ),
+        child: !has
+            ? const EmptyView(icon: Icons.show_chart, message: 'No revenue recorded yet')
+            : LineChart(LineChartData(
+                minY: 0,
+                maxY: maxV * 1.15,
+                gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (_) => FlLine(color: AppColors.border, strokeWidth: 1)),
+                borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.surfaceAlt,
+                    getTooltipItems: (spots) => [
+                      for (final sp in spots) LineTooltipItem('${pts[sp.x.toInt()].label}\n${_cur.format(sp.y)}', AppType.body(size: 12, weight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 50,
+                      getTitlesWidget: (v, meta) => v == meta.max
+                          ? const SizedBox()
+                          : Text(NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 0).format(v), style: AppType.mono(size: 10.5)),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (v, _) {
+                        final i = v.toInt();
+                        if (i < 0 || i >= pts.length || v != i.toDouble()) return const SizedBox();
+                        return Padding(padding: const EdgeInsets.only(top: 6), child: Text(pts[i].label, style: AppType.mono(size: 10.5)));
+                      },
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: [for (var i = 0; i < pts.length; i++) FlSpot(i.toDouble(), pts[i].value)],
+                    isCurved: true,
+                    preventCurveOverShooting: true,
+                    color: AppColors.gold,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.gold.withValues(alpha: 0.25), AppColors.gold.withValues(alpha: 0.0)],
+                      ),
+                    ),
+                  ),
+                ],
+              )),
       ),
     );
   }
 
-  Widget _quickActions() {
-    final actions = [
-      ('Review pending vendors', Icons.verified_user_outlined, '/vendors'),
-      ('Resolve disputes', Icons.gavel_outlined, '/bookings'),
-      ('Process payouts', Icons.account_balance_outlined, '/payments'),
-      ('Moderate reviews', Icons.flag_outlined, '/reviews'),
-    ];
-    return SectionCard(
-      title: 'Quick Actions',
-      child: Column(
-        children: [
-          for (final a in actions)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => context.go(a.$3),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-                  child: Row(children: [
-                    Icon(a.$2, size: 18, color: AppColors.gold),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(a.$1, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500))),
-                    const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
-                  ]),
-                ),
-              ),
-            ),
-        ],
-      ),
+  /// The same live queue as the bell, so the first screen an admin sees says
+  /// what is waiting on them.
+  Widget _attentionCard() {
+    return ValueListenableBuilder<List<AttentionItem>>(
+      valueListenable: AdminBadges.items,
+      builder: (context, items, _) {
+        final total = items.fold<int>(0, (s, i) => s + i.count);
+        return SectionCard(
+          title: 'Needs attention',
+          actions: [if (items.isNotEmpty) StatusChip(label: total == 0 ? 'All clear' : '$total pending', color: total == 0 ? AppColors.success : AppColors.warning)],
+          child: items.isEmpty
+              ? const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+              : Column(children: [
+                  for (final i in items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => context.go(i.route),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceAlt,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: i.count > 0 ? i.color().withValues(alpha: .35) : AppColors.border),
+                          ),
+                          child: Row(children: [
+                            Icon(i.icon, size: 18, color: i.count > 0 ? i.color() : AppColors.textMuted),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(i.label,
+                                  style: AppType.body(size: 13, weight: FontWeight.w500, color: i.count > 0 ? AppColors.textPrimary : AppColors.textMuted)),
+                            ),
+                            Text('${i.count}',
+                                style: AppType.mono(size: 13, weight: FontWeight.w700, color: i.count > 0 ? i.color() : AppColors.textMuted)),
+                            const SizedBox(width: 6),
+                            Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ]),
+        );
+      },
     );
   }
 
   Widget _recentBookings() {
-    final cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     return SectionCard(
-      title: 'Recent Bookings',
+      title: 'Recent bookings',
       actions: [TextButton(onPressed: () => context.go('/bookings'), child: const Text('View all'))],
-      child: Column(
-        children: [
-          for (final b in _recent ?? [])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(children: [
-                InitialsAvatar(name: b.vendorName, size: 36),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(b.service, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                    Text('${b.clientName} · ${b.vendorName}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                  ]),
+      child: _recent.isEmpty
+          ? const EmptyView(icon: Icons.event_note_outlined, message: 'No bookings yet')
+          : Column(children: [
+              for (final b in _recent)
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => context.go('/bookings?q=${Uri.encodeQueryComponent(b.inquiryRef ?? b.id)}'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    child: Row(children: [
+                      InitialsAvatar(name: b.vendorName.isEmpty ? '?' : b.vendorName, size: 36),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(b.service, overflow: TextOverflow.ellipsis, style: AppType.body(size: 13.5, weight: FontWeight.w600)),
+                          Text('${b.clientName} · ${b.vendorName} · ${DateFormat('d MMM').format(b.date)}',
+                              overflow: TextOverflow.ellipsis, style: AppType.body(size: 12, color: AppColors.textMuted)),
+                        ]),
+                      ),
+                      if (!Responsive.isMobile(context)) ...[
+                        Text(_cur.format(b.amount), style: AppType.mono(size: 13, weight: FontWeight.w600, color: AppColors.textPrimary)),
+                        const SizedBox(width: 14),
+                      ],
+                      StatusChip(label: StatusUi.booking(b.status).$1, color: StatusUi.booking(b.status).$2),
+                    ]),
+                  ),
                 ),
-                if (!Responsive.isMobile(context)) ...[
-                  Text(cur.format(b.amount), style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 16),
-                ],
-                StatusChip(label: StatusUi.booking(b.status).$1, color: StatusUi.booking(b.status).$2),
-              ]),
-            ),
-        ],
-      ),
+            ]),
     );
   }
 }

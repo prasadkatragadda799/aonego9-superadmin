@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/widgets/common.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Super-admin digest desk. Every published issue carries the poster’s
@@ -66,26 +67,28 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
         title: const Text('Delete issue?'),
         content: Text('Remove “${issue['title']}” from the user digest?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.dangerFill, foregroundColor: AppColors.onAccent(AppColors.dangerFill)),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
+    final m = Toast.of(context);
     try {
       await _repo.deleteNewsletter(id);
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() => _issues = _issues.where((n) => n['id']?.toString() != id).toList());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Issue removed')));
+      if (!mounted) return;
+      setState(() => _issues = _issues.where((n) => n['id']?.toString() != id).toList());
+      Toast.ok(m, 'Issue removed from the digest');
+    } catch (e) {
+      Toast.error(m, apiErrorMessage(e, fallback: 'Could not delete the issue.'));
+    }
   }
 
   Future<void> _editIssue(Map<String, dynamic> issue) async {
@@ -94,7 +97,6 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
         title: const Text('Edit issue'),
         content: SizedBox(
           width: 420,
@@ -114,16 +116,14 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     final id = issue['id']?.toString();
     if (id == null) return;
     final payload = {'title': title.text.trim(), 'body': body.text.trim()};
+    if (!mounted) return;
+    final m = Toast.of(context);
     try {
       await _repo.updateNewsletter(id, payload);
+      Toast.ok(m, 'Issue updated');
       await _load();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved locally — API update failed')));
-      setState(() {
-        final i = _issues.indexWhere((n) => n['id']?.toString() == id);
-        if (i >= 0) _issues[i] = {..._issues[i], ...payload};
-      });
+    } catch (e) {
+      Toast.error(m, apiErrorMessage(e, fallback: 'Could not update the issue — your edit was not saved.'));
     }
   }
 
@@ -133,10 +133,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
         _org.text.trim().isEmpty ||
         _title.text.trim().isEmpty ||
         _body.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Author name, work email, organisation, headline and body are required'),
-        backgroundColor: AppColors.danger,
-      ));
+      Toast.error(Toast.of(context), 'Author name, work email, organisation, headline and body are required');
       return;
     }
     setState(() => _busy = true);
@@ -153,32 +150,31 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
       'credentials_url': _cred.text.trim(),
       'date': DateTime.now().toIso8601String().split('T').first,
     };
+    final m = Toast.of(context);
     try {
       await _repo.publishNewsletter(payload);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Issue published to the user digest')));
+      Toast.ok(m, 'Issue published to the user digest');
+      setState(() {
+        _busy = false;
+        _title.clear();
+        _excerpt.clear();
+        _body.clear();
+        _tag.clear();
+      });
+      await _load();
     } catch (e) {
-      if (!mounted) return;
-      // Still keep it on the desk so the operator can see what they wrote.
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Saved on this desk. API: ${e.toString().replaceFirst(RegExp(r'^[^:]+:\\s*'), '')}'),
-      ));
+      // The draft stays in the form so nothing the operator wrote is lost.
+      if (mounted) setState(() => _busy = false);
+      Toast.error(m, apiErrorMessage(e, fallback: 'Could not publish — your draft is still in the form.'));
     }
-    setState(() {
-      _issues = [payload, ..._issues];
-      _busy = false;
-      _title.clear();
-      _excerpt.clear();
-      _body.clear();
-      _tag.clear();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const LoadingView();
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         PageHeader(
           title: 'Newsletter',
@@ -219,14 +215,14 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Poster credentials', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
+          Text('Poster credentials', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _field('Author name', _author, 'As it should appear on the digest'),
           _field('Work email', _email, 'desk@aonego9.com'),
           _field('Organisation / desk', _org, 'AOneGo9 Casting Desk'),
           _field('Credential or site URL', _cred, 'https://…'),
           const Divider(height: 32),
-          const Text('The story', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
+          Text('The story', style: TextStyle(color: AppColors.textMuted, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -272,8 +268,8 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
           hintText: hint,
           filled: true,
           fillColor: AppColors.surfaceAlt,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppColors.border)),
         ),
       ),
     );
@@ -283,7 +279,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     return SectionCard(
       title: 'Live on the user app',
       child: _issues.isEmpty
-          ? const Text('Nothing published yet. The user app stays empty until the first issue lands.',
+          ? Text('Nothing published yet. The user app stays empty until the first issue lands.',
               style: TextStyle(color: AppColors.textMuted, height: 1.5, fontSize: 13))
           : Column(
               children: [
@@ -306,7 +302,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
                           ),
                           child: Text(
                             (n['kind'] ?? 'happening').toString().toUpperCase(),
-                            style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
+                            style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -315,7 +311,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
                             Text(n['title']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                             Text(
                               '${n['author'] ?? n['author_name'] ?? ''}  ·  ${n['organisation'] ?? ''}  ·  ${n['city'] ?? ''}',
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                             ),
                           ]),
                         ),
@@ -327,7 +323,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
                           ),
                           IconButton(
                             tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                            icon: Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
                             onPressed: () => _deleteIssue(n),
                           ),
                         ],
@@ -343,7 +339,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
     return SectionCard(
       title: 'Contributor inbox',
       child: _inbox.isEmpty
-          ? const Text('Stories submitted from the user app land here with name, phone, organisation and credential URL for verification.',
+          ? Text('Stories submitted from the user app land here with name, phone, organisation and credential URL for verification.',
               style: TextStyle(color: AppColors.textMuted, height: 1.5, fontSize: 13))
           : Column(
               children: [
@@ -355,7 +351,7 @@ class _NewsletterAdminScreenState extends State<NewsletterAdminScreen> {
                       title: Text(c['title']?.toString() ?? 'Untitled', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         '${c['author_name'] ?? ''}  ·  ${c['organisation'] ?? ''}  ·  ${c['author_email'] ?? ''}',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                       ),
                     ),
                   ),

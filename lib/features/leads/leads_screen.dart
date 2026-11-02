@@ -5,6 +5,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
 import '../../core/widgets/common.dart';
+import '../../core/utils/file_saver.dart';
+import '../../core/utils/launch_util.dart';
 import '../../data/models/directory_models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -14,7 +16,8 @@ import '../../data/repositories/admin_repository.dart';
 /// Before this the forms had nowhere to land in the console: the desk had no
 /// way to see an artist application, let alone act on one.
 class LeadsScreen extends StatefulWidget {
-  const LeadsScreen({super.key});
+  final String initialQuery;
+  const LeadsScreen({super.key, this.initialQuery = ''});
   @override
   State<LeadsScreen> createState() => _LeadsScreenState();
 }
@@ -25,7 +28,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
   bool _loading = true;
   String _kind = 'all';
   String _status = 'all';
-  String _search = '';
+  late String _search = widget.initialQuery;
   Lead? _selected;
 
   static const _kinds = [
@@ -36,6 +39,10 @@ class _LeadsScreenState extends State<LeadsScreen> {
     ('join', 'Join us'),
     ('partner', 'Partners'),
     ('session_register', 'Sessions'),
+    ('vendor', 'Vendor requests'),
+    ('payout_request', 'Payouts'),
+    ('kyc_document', 'KYC'),
+    ('password_reset', 'Password resets'),
   ];
 
   @override
@@ -53,9 +60,28 @@ class _LeadsScreenState extends State<LeadsScreen> {
     });
   }
 
+  Future<void> _export() async {
+    final m = Toast.of(context);
+    final rows = _visible;
+    if (rows.isEmpty) return Toast.info(m, 'Nothing to export in this view.');
+    final csv = toCsv(
+      ['Date', 'Type', 'Status', 'Name', 'Email', 'Phone', 'City', 'Message'],
+      [
+        for (final l in rows)
+          [l.createdAt == null ? '' : DateFormat('yyyy-MM-dd HH:mm').format(l.createdAt!), l.kindLabel, l.status, l.name, l.email, l.phone, l.city, l.message],
+      ],
+    );
+    final dl = await saveTextFile('aonego9-leads-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv', csv);
+    Toast.ok(m, dl ? 'Exported ${rows.length} leads' : 'CSV copied to clipboard');
+  }
+
   List<Lead> get _visible {
     var list = _leads;
-    if (_kind != 'all') list = list.where((l) => l.kind == _kind).toList();
+    if (_kind == 'vendor') {
+      list = list.where((l) => l.isVendorRequest).toList();
+    } else if (_kind != 'all') {
+      list = list.where((l) => l.kind == _kind).toList();
+    }
     if (_status != 'all') list = list.where((l) => l.status == _status).toList();
     if (_search.trim().isNotEmpty) {
       final q = _search.trim().toLowerCase();
@@ -85,22 +111,64 @@ class _LeadsScreenState extends State<LeadsScreen> {
     }
   }
 
+  Future<void> _verifyKyc(Lead l) async {
+    final ok = await confirmAction(
+      context,
+      title: 'Mark KYC verified?',
+      message: 'Confirm you have checked the ${l.details['document_type'] ?? 'document'} for ${l.details['company'] ?? l.name}. '
+          'The vendor gets a verified badge on the marketplace.',
+      confirmLabel: 'Mark verified',
+    );
+    if (!ok || !mounted) return;
+    final m = Toast.of(context);
+    try {
+      await _repo.setVendorKyc(l.vendorId, true);
+      Toast.ok(m, '${l.details['company'] ?? l.name} is now KYC verified');
+      await _setStatus(l, 'closed');
+    } catch (e) {
+      showAdminErrorOn(m, e);
+    }
+  }
+
+  Future<void> _recordPayout(Lead l) async {
+    final ok = await confirmAction(
+      context,
+      title: 'Record payout of ₹${l.amount.toStringAsFixed(0)}?',
+      message: 'Only confirm after the transfer to ${l.details['company'] ?? l.name} has been made'
+          '${(l.details['payout_to'] ?? '').toString().isEmpty ? '' : ' (${l.details['payout_to']})'}. '
+          'It appears in their earnings as a payout.',
+      confirmLabel: 'Record payout',
+    );
+    if (!ok || !mounted) return;
+    final m = Toast.of(context);
+    try {
+      await _repo.triggerPayout(l.vendorId, l.amount);
+      Toast.ok(m, 'Payout recorded');
+      await _setStatus(l, 'closed');
+    } catch (e) {
+      showAdminErrorOn(m, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const LoadingView();
     final newCount = _leads.where((l) => l.status == 'new').length;
     final applications = _leads.where((l) => l.isApplication).length;
 
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
-        const PageHeader(
+        PageHeader(
           eyebrow: 'Inbound',
           title: 'Leads & Applications',
-          subtitle: 'Contact, join us, artist and vendor applications, partnerships and session signups',
+          subtitle: 'Applications, contact forms, session signups and requests from vendors',
+          actions: [
+            OutlinedButton.icon(onPressed: _export, icon: const Icon(Icons.download_outlined, size: 18), label: const Text('Export CSV')),
+          ],
         ),
         const SizedBox(height: 24),
-        Wrap(spacing: 14, runSpacing: 14, children: [
+        ResponsiveGrid(minTileWidth: 180, children: [
           StatCard(label: 'Total', value: '${_leads.length}', icon: Icons.inbox_outlined, color: AppColors.gold),
           StatCard(label: 'Unactioned', value: '$newCount', icon: Icons.mark_email_unread_outlined, color: AppColors.warning),
           StatCard(label: 'Applications', value: '$applications', icon: Icons.badge_outlined, color: AppColors.info),
@@ -117,13 +185,17 @@ class _LeadsScreenState extends State<LeadsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SearchField(hint: 'Search name, email, phone, city…', onChanged: (v) => setState(() => _search = v)),
+              SearchField(initial: _search, hint: 'Search name, email, phone, city…', onChanged: (v) => setState(() => _search = v)),
               const SizedBox(height: 14),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final k in _kinds)
                   _Chip(
                     label: k.$2,
-                    count: k.$1 == 'all' ? _leads.length : _leads.where((l) => l.kind == k.$1).length,
+                    count: k.$1 == 'all'
+                        ? _leads.length
+                        : k.$1 == 'vendor'
+                            ? _leads.where((l) => l.isVendorRequest).length
+                            : _leads.where((l) => l.kind == k.$1).length,
                     active: _kind == k.$1,
                     onTap: () => setState(() => _kind = k.$1),
                   ),
@@ -246,6 +318,39 @@ class _LeadsScreenState extends State<LeadsScreen> {
               const SizedBox(height: 14),
             ],
             Wrap(spacing: 8, runSpacing: 8, children: [
+              if (l.email.isNotEmpty)
+                ElevatedButton.icon(
+                  onPressed: () => openExternal(
+                    context,
+                    mailUri(l.email, subject: 'Re: your ${l.kindLabel.toLowerCase()} — AOneGo9', body: 'Hi ${l.name.split(' ').first},\n\n'),
+                  ),
+                  icon: const Icon(Icons.reply, size: 16),
+                  label: const Text('Reply by email'),
+                ),
+              if (l.phone.isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: () => openExternal(context, telUri(l.phone)),
+                  icon: const Icon(Icons.call_outlined, size: 16),
+                  label: const Text('Call'),
+                ),
+              if (l.documentUrl.startsWith('http'))
+                OutlinedButton.icon(
+                  onPressed: () => openExternal(context, Uri.parse(l.documentUrl)),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('Open document'),
+                ),
+              if (l.kind == 'kyc_document' && l.vendorId.isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: () => _verifyKyc(l),
+                  icon: const Icon(Icons.verified_outlined, size: 16),
+                  label: const Text('Mark vendor KYC verified'),
+                ),
+              if (l.kind == 'payout_request' && l.vendorId.isNotEmpty && l.amount > 0)
+                OutlinedButton.icon(
+                  onPressed: () => _recordPayout(l),
+                  icon: const Icon(Icons.account_balance_outlined, size: 16),
+                  label: Text('Record payout ₹${l.amount.toStringAsFixed(0)}'),
+                ),
               for (final s in const [('new', 'Mark new'), ('in_progress', 'In progress'), ('closed', 'Close')])
                 OutlinedButton(
                   onPressed: l.status == s.$1 ? null : () => _setStatus(l, s.$1),

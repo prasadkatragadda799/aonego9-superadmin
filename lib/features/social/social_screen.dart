@@ -90,7 +90,7 @@ class _SocialScreenState extends State<SocialScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Remove', style: TextStyle(color: AppColors.danger)),
+            child: Text('Remove', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -117,8 +117,8 @@ class _SocialScreenState extends State<SocialScreen> {
     final reach = _accounts.fold<int>(0, (s, a) => s + a.followers);
     final unowned = _accounts.where((a) => a.owner.trim().isEmpty).length;
 
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         PageHeader(
           eyebrow: 'Marketing',
@@ -133,7 +133,7 @@ class _SocialScreenState extends State<SocialScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        Wrap(spacing: 14, runSpacing: 14, children: [
+        ResponsiveGrid(minTileWidth: 180, children: [
           StatCard(label: 'Accounts', value: '${_accounts.length}', icon: Icons.share_outlined, color: AppColors.gold),
           StatCard(label: 'Total reach', value: _fmt(reach), icon: Icons.people_outline, color: AppColors.info),
           StatCard(
@@ -199,7 +199,7 @@ class _SocialScreenState extends State<SocialScreen> {
             Row(children: [
               Text(_label(a.platform), style: AppType.body(size: 14, weight: FontWeight.w700)),
               const SizedBox(width: 8),
-              if (a.connected) const StatusChip(label: 'Connected', color: AppColors.success),
+              if (a.connected) StatusChip(label: 'Connected', color: AppColors.success),
             ]),
             const SizedBox(height: 3),
             Text(

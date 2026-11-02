@@ -74,8 +74,8 @@ class _SessionsAdminScreenState extends State<SessionsAdminScreen> {
     final published = _sessions.where((s) => s.published).length;
     final registrations = _sessions.fold<int>(0, (sum, s) => sum + s.registrations);
 
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         PageHeader(
           eyebrow: 'Learning programme',
@@ -90,7 +90,7 @@ class _SessionsAdminScreenState extends State<SessionsAdminScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        Wrap(spacing: 14, runSpacing: 14, children: [
+        ResponsiveGrid(minTileWidth: 180, children: [
           StatCard(label: 'Sessions', value: '${_sessions.length}', icon: Icons.school_outlined, color: AppColors.gold),
           StatCard(label: 'Published', value: '$published', icon: Icons.visibility_outlined, color: AppColors.success),
           StatCard(

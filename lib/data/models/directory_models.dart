@@ -401,10 +401,31 @@ class Lead {
         'apply_vendor' => 'Vendor application',
         'partner' => 'Partnership',
         'session_register' => 'Session signup',
+        'payout_request' => 'Payout request',
+        'payout_details' => 'Payout details',
+        'kyc_document' => 'KYC document',
+        'vendor_support' => 'Vendor support',
+        'booking_issue' => 'Booking issue',
+        'listing_review' => 'Listing review',
+        'newsletter_pitch' => 'Story pitch',
+        'password_reset' => 'Password reset',
         _ => 'Lead',
       };
 
   bool get isApplication => kind == 'apply_artist' || kind == 'apply_vendor';
+
+  /// Sent from the vendor console (payouts, KYC, support) rather than a
+  /// public marketplace form.
+  bool get isVendorRequest => vendorRequestKinds.contains(kind) || details['source'] == 'vendor_console';
+
+  static const vendorRequestKinds = {
+    'payout_request', 'payout_details', 'kyc_document', 'vendor_support',
+    'booking_issue', 'listing_review', 'newsletter_pitch',
+  };
+
+  String get vendorId => '${details['vendor_id'] ?? ''}';
+  double get amount => double.tryParse('${details['amount'] ?? ''}') ?? 0;
+  String get documentUrl => '${details['document_url'] ?? ''}';
 
   factory Lead.fromJson(Map<String, dynamic> j) {
     // Anything that isn't a known column is surfaced as a detail row, so the

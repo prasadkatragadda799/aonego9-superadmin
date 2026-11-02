@@ -18,15 +18,43 @@ enum BookingSource { direct, inquiry }
 
 enum UserRole { model, photographer, videographer, venue, eventService, client }
 
-T _enumFromString<T>(List<T> values, String? name, T fallback) {
+/// Enum lookup that also understands snake_case (`in_progress`,
+/// `event_service`) and is case-insensitive.
+T _enumFromString<T>(List<T> values, Object? name, T fallback) {
   if (name == null) return fallback;
+  final n = '$name'.replaceAll('_', '').replaceAll('-', '').replaceAll(' ', '').toLowerCase();
   return values.firstWhere(
-    (e) => e.toString().split('.').last.toLowerCase() == name.toLowerCase(),
+    (e) => e.toString().split('.').last.toLowerCase() == n,
     orElse: () => fallback,
   );
 }
 
 String _enumName(Object e) => e.toString().split('.').last;
+
+Object? _pick(Map<String, dynamic> j, List<String> keys) {
+  for (final k in keys) {
+    final v = j[k];
+    if (v != null) return v;
+  }
+  return null;
+}
+
+double _num(Object? v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+int _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+String _str(Object? v) => v == null ? '' : '$v';
+bool _bool(Object? v, {bool fb = false}) {
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) return v.toLowerCase() == 'true' || v == '1';
+  return fb;
+}
+
+/// Missing or malformed timestamps become "now" instead of throwing.
+DateTime _date(Object? v) {
+  final raw = _str(v);
+  if (raw.isEmpty) return DateTime.now();
+  return DateTime.tryParse(raw)?.toLocal() ?? DateTime.now();
+}
 
 class Vendor {
   final String id;
@@ -65,26 +93,29 @@ class Vendor {
     this.plan = 'Starter',
   });
 
-  factory Vendor.fromJson(Map<String, dynamic> j) => Vendor(
-        id: j['id'].toString(),
-        name: j['name'] ?? '',
-        company: j['company'] ?? '',
-        email: j['email'] ?? '',
-        phone: j['phone'] ?? '',
-        city: j['city'] ?? '',
-        category: j['category'] ?? '',
-        status: _enumFromString(ApprovalStatus.values, j['status'], ApprovalStatus.pending),
-        kycVerified: j['kycVerified'] ?? j['kyc_verified'] ?? false,
-        rating: (j['rating'] ?? 0).toDouble(),
-        totalBookings: j['totalBookings'] ?? j['total_bookings'] ?? 0,
-        totalEarnings: (j['totalEarnings'] ?? j['total_earnings'] ?? 0).toDouble(),
-        joinedAt: parseApiDateTime(j['joinedAt']?.toString() ?? j['joined_at']?.toString() ?? ''),
-        lastLoginAt: j['last_login_at'] == null && j['lastLoginAt'] == null
-            ? null
-            : parseApiDateTime((j['last_login_at'] ?? j['lastLoginAt']).toString()),
-        avatarUrl: j['avatarUrl'] ?? j['avatar_url'] ?? '',
-        plan: j['plan'] ?? 'Starter',
-      );
+  factory Vendor.fromJson(Map<String, dynamic> j) {
+    final last = _pick(j, ['last_login_at', 'lastLoginAt']);
+    return Vendor(
+      id: _str(j['id']),
+      name: _str(j['name']),
+      company: _str(j['company']),
+      email: _str(j['email']),
+      phone: _str(j['phone']),
+      city: _str(j['city']),
+      category: _str(j['category']),
+      status: _enumFromString(ApprovalStatus.values, j['status'], ApprovalStatus.pending),
+      kycVerified: _bool(_pick(j, ['kycVerified', 'kyc_verified'])),
+      rating: _num(j['rating']),
+      totalBookings: _int(_pick(j, ['totalBookings', 'total_bookings'])),
+      totalEarnings: _num(_pick(j, ['totalEarnings', 'total_earnings'])),
+      joinedAt: parseApiDateTime(_str(_pick(j, ['joinedAt', 'joined_at', 'created_at']))),
+      lastLoginAt: last == null ? null : parseApiDateTime('$last'),
+      avatarUrl: _str(_pick(j, ['avatarUrl', 'avatar_url'])),
+      plan: _str(j['plan']).isEmpty ? 'Starter' : _str(j['plan']),
+    );
+  }
+
+  String get displayName => company.isNotEmpty ? company : name;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -118,6 +149,7 @@ class Vendor {
         totalBookings: totalBookings,
         totalEarnings: totalEarnings,
         joinedAt: joinedAt,
+        lastLoginAt: lastLoginAt,
         avatarUrl: avatarUrl,
         plan: plan,
       );
@@ -151,17 +183,17 @@ class AppUser {
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
-        id: j['id'].toString(),
-        name: j['name'] ?? '',
-        email: j['email'] ?? '',
-        phone: j['phone'] ?? '',
-        city: j['city'] ?? '',
+        id: _str(j['id']),
+        name: _str(j['name']).isEmpty ? 'Unnamed user' : _str(j['name']),
+        email: _str(j['email']),
+        phone: _str(j['phone']),
+        city: _str(j['city']),
         role: _enumFromString(UserRole.values, j['role'], UserRole.client),
         status: _enumFromString(ApprovalStatus.values, j['status'], ApprovalStatus.approved),
-        verified: j['verified'] ?? false,
-        rating: (j['rating'] ?? 0).toDouble(),
-        jobsDone: j['jobsDone'] ?? 0,
-        joinedAt: DateTime.tryParse(j['joinedAt'] ?? '') ?? DateTime.now(),
+        verified: _bool(_pick(j, ['verified', 'is_verified'])),
+        rating: _num(j['rating']),
+        jobsDone: _int(_pick(j, ['jobsDone', 'jobs_done'])),
+        joinedAt: _date(_pick(j, ['joinedAt', 'joined_at', 'created_at'])),
       );
 
   Map<String, dynamic> toJson() => {
@@ -205,6 +237,10 @@ class Booking {
   final BookingSource source;
   final String? inquiryRef; // AO9-xxxxxx reference when raised via inquiry
   final double advancePaid; // deposit the client has already paid
+  final String vendorId;
+  final String clientEmail;
+  final String clientPhone;
+  final String notes;
 
   Booking({
     required this.id,
@@ -218,22 +254,51 @@ class Booking {
     this.source = BookingSource.direct,
     this.inquiryRef,
     this.advancePaid = 0,
+    this.vendorId = '',
+    this.clientEmail = '',
+    this.clientPhone = '',
+    this.notes = '',
   });
 
   double get balanceDue => (amount - advancePaid).clamp(0, amount);
 
-  factory Booking.fromJson(Map<String, dynamic> j) => Booking(
-        id: j['id'].toString(),
-        clientName: j['client_name'] ?? j['clientName'] ?? '',
-        vendorName: j['vendor_name'] ?? j['vendorName'] ?? '',
-        service: j['service'] ?? '',
-        date: DateTime.tryParse(j['date'] ?? '') ?? DateTime.now(),
-        amount: (j['amount'] ?? 0).toDouble(),
-        status: _enumFromString(BookingStatus.values, j['status'], BookingStatus.requested),
-        city: j['city'] ?? j['location'] ?? '',
-        source: _enumFromString(BookingSource.values, j['source'], BookingSource.direct),
-        inquiryRef: j['inquiry_ref'] ?? j['inquiryRef'],
-        advancePaid: (j['advance_paid'] ?? j['advancePaid'] ?? 0).toDouble(),
+  factory Booking.fromJson(Map<String, dynamic> j) {
+    final ref = _str(_pick(j, ['inquiry_ref', 'inquiryRef']));
+    return Booking(
+      id: _str(j['id']),
+      clientName: _str(_pick(j, ['client_name', 'clientName'])),
+      vendorName: _str(_pick(j, ['vendor_name', 'vendorName'])),
+      service: _str(_pick(j, ['service', 'category'])),
+      date: _date(_pick(j, ['date', 'event_date'])),
+      amount: _num(j['amount']),
+      status: _enumFromString(BookingStatus.values, j['status'], BookingStatus.requested),
+      city: _str(_pick(j, ['city', 'location'])),
+      source: _enumFromString(BookingSource.values, j['source'], ref.isEmpty ? BookingSource.direct : BookingSource.inquiry),
+      inquiryRef: ref.isEmpty ? null : ref,
+      advancePaid: _num(_pick(j, ['advance_paid', 'advancePaid'])),
+      vendorId: _str(_pick(j, ['vendor_id', 'vendorId'])),
+      clientEmail: _str(_pick(j, ['client_email', 'email'])),
+      clientPhone: _str(_pick(j, ['client_phone', 'phone'])),
+      notes: _str(_pick(j, ['notes', 'message'])),
+    );
+  }
+
+  Booking copyWith({BookingStatus? status}) => Booking(
+        id: id,
+        clientName: clientName,
+        vendorName: vendorName,
+        service: service,
+        date: date,
+        amount: amount,
+        status: status ?? this.status,
+        city: city,
+        source: source,
+        inquiryRef: inquiryRef,
+        advancePaid: advancePaid,
+        vendorId: vendorId,
+        clientEmail: clientEmail,
+        clientPhone: clientPhone,
+        notes: notes,
       );
 
   Map<String, dynamic> toJson() => {
@@ -259,6 +324,8 @@ class PaymentTxn {
   final PaymentStatus status;
   final DateTime date;
   final String method;
+  final String vendorId;
+  final String reference;
 
   PaymentTxn({
     required this.id,
@@ -268,16 +335,20 @@ class PaymentTxn {
     required this.status,
     required this.date,
     required this.method,
+    this.vendorId = '',
+    this.reference = '',
   });
 
   factory PaymentTxn.fromJson(Map<String, dynamic> j) => PaymentTxn(
-        id: j['id'].toString(),
-        party: j['party'] ?? '',
-        type: j['type'] ?? '',
-        amount: (j['amount'] ?? 0).toDouble(),
+        id: _str(j['id']),
+        party: _str(_pick(j, ['party', 'vendor_name', 'client_name'])),
+        type: _str(j['type']).toLowerCase(),
+        amount: _num(j['amount']),
         status: _enumFromString(PaymentStatus.values, j['status'], PaymentStatus.pending),
-        date: DateTime.tryParse(j['date'] ?? '') ?? DateTime.now(),
-        method: j['method'] ?? '',
+        date: _date(_pick(j, ['date', 'created_at'])),
+        method: _str(j['method']),
+        vendorId: _str(_pick(j, ['vendor_id', 'vendorId'])),
+        reference: _str(_pick(j, ['reference', 'inquiry_ref', 'booking_id'])),
       );
 
   Map<String, dynamic> toJson() => {
@@ -300,6 +371,8 @@ class Review {
   final bool flagged;
   final DateTime date;
 
+  final String reply;
+
   Review({
     required this.id,
     required this.author,
@@ -308,7 +381,26 @@ class Review {
     required this.text,
     required this.flagged,
     required this.date,
+    this.reply = '',
   });
+
+  factory Review.fromJson(Map<String, dynamic> j) => Review(
+        id: _str(j['id']),
+        author: _str(_pick(j, ['author_name', 'client_name', 'author', 'author_id'])).isEmpty
+            ? 'Anonymous'
+            : _str(_pick(j, ['author_name', 'client_name', 'author', 'author_id'])),
+        target: _str(_pick(j, ['vendor_name', 'target', 'vendor_id'])),
+        stars: _int(_pick(j, ['stars', 'rating'])).clamp(0, 5),
+        text: _str(j['text']),
+        flagged: _bool(j['flagged']),
+        date: _date(_pick(j, ['date', 'created_at'])),
+        reply: _str(j['reply']),
+      );
+
+  Review copyWith({bool? flagged}) => Review(
+        id: id, author: author, target: target, stars: stars, text: text,
+        flagged: flagged ?? this.flagged, date: date, reply: reply,
+      );
 }
 
 class SupportTicket {
@@ -319,6 +411,9 @@ class SupportTicket {
   final String status; // open, pending, resolved
   final DateTime date;
 
+  final String message;
+  final String requesterEmail;
+
   SupportTicket({
     required this.id,
     required this.subject,
@@ -326,7 +421,25 @@ class SupportTicket {
     required this.priority,
     required this.status,
     required this.date,
+    this.message = '',
+    this.requesterEmail = '',
   });
+
+  factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
+        id: _str(j['id']),
+        subject: _str(j['subject']).isEmpty ? '(no subject)' : _str(j['subject']),
+        requester: _str(_pick(j, ['requester_name', 'requester', 'requester_id'])),
+        priority: _str(j['priority']).toLowerCase(),
+        status: _str(j['status']).isEmpty ? 'open' : _str(j['status']).toLowerCase(),
+        date: _date(_pick(j, ['created_at', 'date'])),
+        message: _str(_pick(j, ['message', 'body', 'description'])),
+        requesterEmail: _str(_pick(j, ['requester_email', 'email'])),
+      );
+
+  SupportTicket copyWith({String? status}) => SupportTicket(
+        id: id, subject: subject, requester: requester, priority: priority,
+        status: status ?? this.status, date: date, message: message, requesterEmail: requesterEmail,
+      );
 }
 
 class CmsBanner {
@@ -334,7 +447,36 @@ class CmsBanner {
   final String title;
   final String placement;
   final bool active;
-  CmsBanner({required this.id, required this.title, required this.placement, required this.active});
+  final String imageUrl;
+  final String link;
+  CmsBanner({
+    required this.id,
+    required this.title,
+    required this.placement,
+    required this.active,
+    this.imageUrl = '',
+    this.link = '',
+  });
+
+  factory CmsBanner.fromJson(Map<String, dynamic> j) => CmsBanner(
+        id: _str(j['id']),
+        title: _str(j['title']),
+        placement: _str(j['placement']),
+        active: _bool(j['active'], fb: true),
+        imageUrl: _str(_pick(j, ['image_url', 'imageUrl'])),
+        link: _str(_pick(j, ['link', 'url', 'cta_url'])),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'placement': placement,
+        'active': active,
+        'image_url': imageUrl,
+        'link': link,
+      };
+
+  CmsBanner copyWith({bool? active}) =>
+      CmsBanner(id: id, title: title, placement: placement, active: active ?? this.active, imageUrl: imageUrl, link: link);
 }
 
 class Category {
@@ -343,6 +485,15 @@ class Category {
   final int listings;
   final bool active;
   Category({required this.id, required this.name, required this.listings, required this.active});
+
+  factory Category.fromJson(Map<String, dynamic> j) => Category(
+        id: _str(j['id']),
+        name: _str(_pick(j, ['name', 'label'])),
+        listings: _int(_pick(j, ['listings', 'count'])),
+        active: _bool(j['active'], fb: true),
+      );
+
+  Category copyWith({bool? active}) => Category(id: id, name: name, listings: listings, active: active ?? this.active);
 }
 
 enum EventStatus { draft, upcoming, live, ended }
@@ -358,6 +509,9 @@ class PlatformEvent {
   final EventStatus status;
   final bool onPoster; // surfaced in the user app's live scroll poster
   final int registrations;
+  final String venue;
+  final String description;
+  final String imageUrl;
 
   PlatformEvent({
     required this.id,
@@ -368,18 +522,38 @@ class PlatformEvent {
     required this.status,
     required this.onPoster,
     required this.registrations,
+    this.venue = '',
+    this.description = '',
+    this.imageUrl = '',
   });
 
   factory PlatformEvent.fromJson(Map<String, dynamic> j) => PlatformEvent(
-        id: j['id'].toString(),
-        title: j['title'] ?? '',
-        category: j['category'] ?? '',
-        city: j['city'] ?? '',
-        date: DateTime.tryParse(j['date'] ?? '') ?? DateTime.now(),
+        id: _str(j['id']),
+        title: _str(j['title']),
+        category: _str(j['category']),
+        city: _str(j['city']),
+        date: _date(j['date']),
         status: _enumFromString(EventStatus.values, j['status'], EventStatus.upcoming),
-        onPoster: j['onPoster'] ?? false,
-        registrations: j['registrations'] ?? 0,
+        onPoster: _bool(_pick(j, ['on_poster', 'onPoster'])),
+        registrations: _int(j['registrations']),
+        venue: _str(j['venue']),
+        description: _str(j['description']),
+        imageUrl: _str(_pick(j, ['image_url', 'imageUrl'])),
       );
+
+  /// Body for creating / editing an event (snake_case, as the poster
+  /// toggle already uses).
+  Map<String, dynamic> toWriteJson() => {
+        'title': title,
+        'category': category,
+        'city': city,
+        'venue': venue,
+        'description': description,
+        'image_url': imageUrl,
+        'date': date.toIso8601String(),
+        'status': _enumName(status),
+        'on_poster': onPoster,
+      };
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -401,6 +575,9 @@ class PlatformEvent {
         status: status ?? this.status,
         onPoster: onPoster ?? this.onPoster,
         registrations: registrations,
+        venue: venue,
+        description: description,
+        imageUrl: imageUrl,
       );
 }
 
@@ -431,13 +608,13 @@ class SubscriptionPlan {
   });
 
   factory SubscriptionPlan.fromJson(Map<String, dynamic> j) => SubscriptionPlan(
-        id: j['id'].toString(),
-        name: j['name'] ?? '',
-        price: (j['price'] ?? 0).toDouble(),
-        period: j['period'] ?? '',
-        features: (j['features'] as List? ?? []).map((f) => f.toString()).toList(),
-        recommended: j['recommended'] ?? false,
-        audience: j['audience'] ?? 'both',
+        id: _str(j['id']),
+        name: _str(j['name']),
+        price: _num(j['price']),
+        period: _str(j['period']),
+        features: (j['features'] is List ? j['features'] as List : const []).map((f) => f.toString()).toList(),
+        recommended: _bool(j['recommended']),
+        audience: _str(j['audience']).isEmpty ? 'both' : _str(j['audience']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -482,16 +659,16 @@ class SubscriptionRequest {
   });
 
   factory SubscriptionRequest.fromJson(Map<String, dynamic> j) => SubscriptionRequest(
-        id: j['id'].toString(),
-        requesterType: j['requester_type'] ?? '',
+        id: _str(j['id']),
+        requesterType: _str(j['requester_type']),
         vendorId: j['vendor_id']?.toString(),
         userId: j['user_id']?.toString(),
-        planId: j['plan_id']?.toString() ?? '',
-        planName: j['plan_name'] ?? '',
-        amount: (j['amount'] ?? 0).toDouble(),
-        receiptImage: j['receipt_image'] ?? '',
-        status: j['status'] ?? 'pending',
-        adminNote: j['admin_note'] ?? '',
+        planId: _str(j['plan_id']),
+        planName: _str(j['plan_name']),
+        amount: _num(j['amount']),
+        receiptImage: _str(j['receipt_image']),
+        status: _str(j['status']).isEmpty ? 'pending' : _str(j['status']).toLowerCase(),
+        adminNote: _str(j['admin_note']),
         createdAt: parseApiDateTime(j['created_at']?.toString() ?? j['createdAt']?.toString() ?? ''),
         reviewedAt: j['reviewed_at'] == null && j['reviewedAt'] == null
             ? null
@@ -506,8 +683,8 @@ class PaymentSettings {
   PaymentSettings({required this.upiId, required this.payeeName});
 
   factory PaymentSettings.fromJson(Map<String, dynamic> j) => PaymentSettings(
-        upiId: j['upi_id'] ?? '',
-        payeeName: j['payee_name'] ?? '',
+        upiId: _str(j['upi_id']).trim(),
+        payeeName: _str(j['payee_name']).trim(),
       );
 
   Map<String, dynamic> toJson() => {'upi_id': upiId, 'payee_name': payeeName};

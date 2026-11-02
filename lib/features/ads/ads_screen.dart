@@ -64,7 +64,7 @@ class _AdsScreenState extends State<AdsScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+            child: Text('Delete', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -97,8 +97,8 @@ class _AdsScreenState extends State<AdsScreen> {
     if (_loading) return const LoadingView();
     final live = _ads.where((a) => a.active).length;
 
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         PageHeader(
           eyebrow: 'Display advertising',
@@ -113,7 +113,7 @@ class _AdsScreenState extends State<AdsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        Wrap(spacing: 14, runSpacing: 14, children: [
+        ResponsiveGrid(minTileWidth: 180, children: [
           StatCard(label: 'Creatives', value: '${_ads.length}', icon: Icons.campaign_outlined, color: AppColors.gold),
           StatCard(label: 'Live now', value: '$live', icon: Icons.play_circle_outline, color: AppColors.success),
           StatCard(

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/receipt_image.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/common.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -53,12 +54,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
 
   void _snack(String message, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: error ? AppColors.danger : AppColors.surfaceAlt),
-    );
+    final m = Toast.of(context);
+    error ? Toast.error(m, message) : Toast.ok(m, message);
   }
 
-  String _errText(Object e) => e.toString().replaceFirst('ApiException', '').replaceAll(RegExp(r'^\(\d+\):\s*'), '');
+  String _errText(Object e) => apiErrorMessage(e);
 
   // ── Loaders ──────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+            child: Text('Delete', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -213,9 +213,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
   // ── Plans tab ────────────────────────────────────────────────
 
   Widget _plansTab(BuildContext context) {
-    final pad = responsiveValue<double>(context, mobile: 16, desktop: 28);
-    return ListView(
-      padding: EdgeInsets.all(pad),
+    return PageBody(
+      onRefresh: _loadPlans,
       children: [
         Row(
           children: [
@@ -254,16 +253,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
   }
 
   Widget _plansGrid(BuildContext context) {
-    final cols = responsiveValue(context, mobile: 1, tablet: 2, desktop: 3);
-    return GridView.count(
-      crossAxisCount: cols,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 20,
-      crossAxisSpacing: 20,
-      childAspectRatio: cols == 1 ? 1.5 : 0.82,
-      children: [for (final p in _plans) _planCard(p)],
-    );
+    return ResponsiveGrid(minTileWidth: 260, maxColumns: 3, spacing: 20, children: [for (final p in _plans) _planCard(p)]);
   }
 
   Widget _planCard(SubscriptionPlan p) {
@@ -272,15 +262,15 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
     return Container(
       decoration: BoxDecoration(
         gradient: highlighted
-            ? const LinearGradient(
+            ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0x33C9A86C), AppColors.surface],
+                colors: [AppColors.gold.withValues(alpha: .16), AppColors.surface],
               )
-            : const LinearGradient(
+            : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppColors.surface, Color(0xFF181B22)],
+                colors: [AppColors.surface, AppColors.surfaceLift],
               ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: highlighted ? AppColors.gold : AppColors.border, width: highlighted ? 1.6 : 1),
@@ -301,7 +291,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(20)),
-                  child: const Text('RECOMMENDED', style: TextStyle(color: Color(0xFF1A1407), fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+                  child: Text('RECOMMENDED', style: AppType.eyebrow(size: 9.5, weight: FontWeight.w800, color: AppColors.onAccent(AppColors.gold))),
                 ),
             ],
           ),
@@ -314,7 +304,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
             children: [
               Text(cur.format(p.price), style: AppType.display(size: 30, weight: FontWeight.w700, color: highlighted ? AppColors.gold : AppColors.textPrimary)),
               const SizedBox(width: 6),
-              Text('/ ${p.period}', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+              Text('/ ${p.period}', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 18),
@@ -326,9 +316,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle, size: 16, color: AppColors.success),
+                  Icon(Icons.check_circle, size: 16, color: AppColors.success),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(f, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                  Expanded(child: Text(f, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
                 ],
               ),
             ),
@@ -346,7 +336,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
               const SizedBox(width: 10),
               IconButton(
                 onPressed: () => _deletePlan(p),
-                icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                icon: Icon(Icons.delete_outline, color: AppColors.danger),
                 tooltip: 'Delete plan',
               ),
             ],
@@ -365,7 +355,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.border)),
-      child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+      child: Text(label, style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -457,13 +447,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(r.requesterType == 'vendor' ? 'Vendor' : 'User', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                  Text(requesterId, style: const TextStyle(color: AppColors.textMuted, fontSize: 12), overflow: TextOverflow.ellipsis),
+                  Text(requesterId, style: TextStyle(color: AppColors.textMuted, fontSize: 12), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
             Expanded(flex: 2, child: Text(r.planName, style: const TextStyle(fontSize: 13.5))),
             Expanded(flex: 2, child: Text(cur.format(r.amount), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600))),
-            Expanded(flex: 2, child: Text(formatIstDate(r.createdAt), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+            Expanded(flex: 2, child: Text(formatIstDate(r.createdAt), style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
             Expanded(flex: 2, child: StatusChip(label: label, color: color)),
             Expanded(
               flex: 2,
@@ -492,7 +482,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Shown to vendors and users when they pay for a subscription.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    Text('Shown to vendors and users when they pay for a subscription.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _upiCtrl,
@@ -509,7 +499,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> with SingleTi
                       child: ElevatedButton.icon(
                         onPressed: _savingSettings ? null : _saveSettings,
                         icon: _savingSettings
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1A1407)))
+                            ? const ButtonSpinner()
                             : const Icon(Icons.save_outlined, size: 18),
                         label: const Text('Save'),
                       ),
@@ -541,7 +531,7 @@ class _Hdr extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         label.toUpperCase(),
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
+        style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
       );
 }
 
@@ -595,11 +585,9 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: ${e.toString().replaceFirst('ApiException', '')}'), backgroundColor: AppColors.danger),
-        );
+        setState(() => _saving = false);
+        Toast.error(Toast.of(context), apiErrorMessage(e, fallback: 'Could not save the plan.'));
       }
     }
   }
@@ -679,7 +667,7 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
         ElevatedButton(
           onPressed: _saving ? null : _submit,
           child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1A1407)))
+              ? const ButtonSpinner()
               : Text(isEdit ? 'Save' : 'Create'),
         ),
       ],
@@ -718,11 +706,9 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      setState(() => _busy = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: ${e.toString().replaceFirst('ApiException', '')}'), backgroundColor: AppColors.danger),
-        );
+        setState(() => _busy = false);
+        Toast.error(Toast.of(context), apiErrorMessage(e, fallback: 'Could not update the request.'));
       }
     }
   }
@@ -747,7 +733,7 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
               _kv('Status', r.status[0].toUpperCase() + r.status.substring(1)),
               if (r.adminNote.isNotEmpty) _kv('Admin note', r.adminNote),
               const SizedBox(height: 12),
-              const Text('Receipt', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+              Text('Receipt', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -773,13 +759,13 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
               TextButton(onPressed: _busy ? null : () => Navigator.pop(context, false), child: const Text('Close')),
               OutlinedButton(
                 onPressed: _busy ? null : () => _act(false),
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: BorderSide(color: AppColors.danger)),
                 child: const Text('Reject'),
               ),
               ElevatedButton(
                 onPressed: _busy ? null : () => _act(true),
                 child: _busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1A1407)))
+                    ? const ButtonSpinner()
                     : const Text('Approve'),
               ),
             ]
@@ -792,7 +778,7 @@ class _RequestReviewDialogState extends State<_RequestReviewDialog> {
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 110, child: Text(k, style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5))),
+          SizedBox(width: 110, child: Text(k, style: TextStyle(color: AppColors.textMuted, fontSize: 12.5))),
           Expanded(child: Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
         ]),
       );

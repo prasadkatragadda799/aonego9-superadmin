@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 /// Shows a receipt from Cloudinary URL or legacy inline base64 data URI.
 class ReceiptImage extends StatelessWidget {
@@ -11,9 +12,9 @@ class ReceiptImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (source.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('No receipt image available', style: TextStyle(color: Colors.grey)),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('No receipt image available', style: TextStyle(color: AppColors.textMuted)),
       );
     }
     if (source.startsWith('http://') || source.startsWith('https://')) {
@@ -24,9 +25,9 @@ class ReceiptImage extends StatelessWidget {
           if (progress == null) return child;
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         },
-        errorBuilder: (_, __, ___) => const Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Could not load receipt image', style: TextStyle(color: Colors.grey)),
+        errorBuilder: (_, __, ___) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Could not load receipt image', style: TextStyle(color: AppColors.textMuted)),
         ),
       );
     }
@@ -35,9 +36,9 @@ class ReceiptImage extends StatelessWidget {
       final bytes = base64Decode(b64);
       return Image.memory(bytes, fit: fit);
     } catch (_) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('No receipt image available', style: TextStyle(color: Colors.grey)),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('No receipt image available', style: TextStyle(color: AppColors.textMuted)),
       );
     }
   }

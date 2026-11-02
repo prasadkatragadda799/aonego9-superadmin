@@ -5,7 +5,11 @@ class NavItem {
   final IconData icon;
   final String route;
   final String? section;
-  const NavItem(this.label, this.icon, this.route, {this.section});
+  final String? short;
+  const NavItem(this.label, this.icon, this.route, {this.section, this.short});
+
+  /// Label for the mobile bottom bar.
+  String get shortLabel => short ?? label.split(' ').first;
 }
 
 /// Full Super Admin navigation — every manageable area of the platform.
@@ -20,7 +24,7 @@ const adminNav = <NavItem>[
   NavItem('Subscriptions', Icons.workspace_premium_outlined, '/subscriptions', section: 'Marketplace'),
 
   NavItem('Reviews', Icons.star_outline, '/reviews', section: 'Moderation'),
-  NavItem('Leads & Applications', Icons.inbox_outlined, '/leads', section: 'Moderation'),
+  NavItem('Leads & Applications', Icons.inbox_outlined, '/leads', section: 'Moderation', short: 'Leads'),
   NavItem('Support', Icons.support_agent_outlined, '/support', section: 'Moderation'),
 
   NavItem('Events & Poster', Icons.celebration_outlined, '/events', section: 'Platform'),

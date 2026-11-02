@@ -12,12 +12,12 @@ class AdminRepository {
   // ── Auth ─────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> login(String email, String password, {String city = ''}) async {
-    final data = await ApiClient.post('/auth/login/admin', {
+    final data = ApiClient.asMap(await ApiClient.post('/auth/login/admin', {
       'email': email,
       'password': password,
       if (city.isNotEmpty) 'city': city,
-    }, auth: false);
-    await ApiClient.saveTokens(data['access_token'], data['refresh_token'], email: email);
+    }, auth: false));
+    await ApiClient.saveTokens('${data['access_token']}', '${data['refresh_token'] ?? ''}', email: email, city: city);
     return data;
   }
 
@@ -27,14 +27,19 @@ class AdminRepository {
 
   // GET /api/v1/analytics/admin/dashboard
   Future<Map<String, num>> dashboardSummary() async {
-    final data = await ApiClient.get('/analytics/admin/dashboard');
+    final data = ApiClient.asMap(await ApiClient.get('/analytics/admin/dashboard'));
+    num n(String k) {
+      final v = data[k];
+      return v is num ? v : num.tryParse('${v ?? ''}') ?? 0;
+    }
+
     return {
-      'totalVendors': (data['total_vendors'] as num?) ?? 0,
-      'pendingVendors': (data['pending_approvals'] as num?) ?? 0,
-      'totalUsers': (data['total_users'] as num?) ?? 0,
-      'activeBookings': (data['active_bookings'] as num?) ?? 0,
-      'revenue': (data['total_revenue'] as num?) ?? 0,
-      'disputes': (data['disputes'] as num?) ?? 0,
+      'totalVendors': n('total_vendors'),
+      'pendingVendors': n('pending_approvals'),
+      'totalUsers': n('total_users'),
+      'activeBookings': n('active_bookings'),
+      'revenue': n('total_revenue'),
+      'disputes': n('disputes'),
     };
   }
 
@@ -43,8 +48,7 @@ class AdminRepository {
   // GET /api/v1/vendors/admin
   Future<List<Vendor>> vendors({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/vendors/admin$q') as Map;
-    return (data['items'] as List).map((j) => Vendor.fromJson(j)).toList();
+    return ApiClient.asList(await ApiClient.get('/vendors/admin$q')).map(Vendor.fromJson).toList();
   }
 
   // PUT /api/v1/vendors/admin/{id}/status  { status }
@@ -59,14 +63,12 @@ class AdminRepository {
 
   // GET /api/v1/vendors/admin/{id}/portfolio
   Future<List<Map<String, dynamic>>> vendorPortfolio(String vendorId) async {
-    final data = await ApiClient.get('/vendors/admin/$vendorId/portfolio') as List;
-    return data.cast<Map<String, dynamic>>();
+    return ApiClient.asList(await ApiClient.get('/vendors/admin/$vendorId/portfolio'));
   }
 
   // GET /api/v1/vendors/admin/{id}/profile-details
   Future<Map<String, dynamic>> vendorProfileDetails(String vendorId) async {
-    final data = await ApiClient.get('/vendors/admin/$vendorId/profile-details') as Map;
-    return data.cast<String, dynamic>();
+    return ApiClient.asMap(await ApiClient.get('/vendors/admin/$vendorId/profile-details'));
   }
 
   // ── Users ─────────────────────────────────────────────────────
@@ -74,8 +76,7 @@ class AdminRepository {
   // GET /api/v1/users
   Future<List<AppUser>> users({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/users$q') as Map;
-    return (data['items'] as List).map((j) => AppUser.fromJson(j)).toList();
+    return ApiClient.asList(await ApiClient.get('/users$q')).map(AppUser.fromJson).toList();
   }
 
   // PUT /api/v1/users/{id}/status  { status }
@@ -93,8 +94,9 @@ class AdminRepository {
   // GET /api/v1/bookings/admin
   Future<List<Booking>> bookings({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/bookings/admin$q') as Map;
-    return (data['items'] as List).map((j) => Booking.fromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/bookings/admin$q')).map(Booking.fromJson).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   // PUT /api/v1/bookings/{id}/status
@@ -106,8 +108,9 @@ class AdminRepository {
 
   // GET /api/v1/payments/admin
   Future<List<PaymentTxn>> payments() async {
-    final data = await ApiClient.get('/payments/admin') as Map;
-    return (data['items'] as List).map((j) => PaymentTxn.fromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/payments/admin')).map(PaymentTxn.fromJson).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   // POST /api/v1/payments/payout
@@ -120,8 +123,9 @@ class AdminRepository {
   // GET /api/v1/reviews/admin
   Future<List<Review>> reviews({bool? flagged}) async {
     final q = flagged != null ? '?flagged=$flagged' : '';
-    final data = await ApiClient.get('/reviews/admin$q') as Map;
-    return (data['items'] as List).map((j) => _reviewFromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/reviews/admin$q')).map(Review.fromJson).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   // PUT /api/v1/reviews/{id}/flag  (toggles)
@@ -137,8 +141,9 @@ class AdminRepository {
   // GET /api/v1/support/admin
   Future<List<SupportTicket>> tickets({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/support/admin$q') as Map;
-    return (data['items'] as List).map((j) => _ticketFromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/support/admin$q')).map(SupportTicket.fromJson).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   // PUT /api/v1/support/admin/{id}
@@ -150,9 +155,11 @@ class AdminRepository {
 
   // GET /api/v1/cms/banners
   Future<List<CmsBanner>> banners() async {
-    final data = await ApiClient.get('/cms/banners') as List;
-    return data.map((j) => CmsBanner(id: j['id'], title: j['title'], placement: j['placement'], active: j['active'])).toList();
+    return ApiClient.asList(await ApiClient.get('/cms/banners')).map(CmsBanner.fromJson).toList();
   }
+
+  // POST /api/v1/cms/banners
+  Future<void> createBanner(CmsBanner b) => ApiClient.post('/cms/banners', b.toJson());
 
   // PUT /api/v1/cms/banners/{id}
   Future<void> updateBanner(String id, Map<String, dynamic> fields) => ApiClient.put('/cms/banners/$id', fields);
@@ -164,9 +171,11 @@ class AdminRepository {
 
   // GET /api/v1/cms/categories
   Future<List<Category>> categories() async {
-    final data = await ApiClient.get('/cms/categories') as List;
-    return data.map((j) => Category(id: j['id'], name: j['name'], listings: j['listings'], active: j['active'])).toList();
+    return ApiClient.asList(await ApiClient.get('/cms/categories')).map(Category.fromJson).toList();
   }
+
+  // POST /api/v1/cms/categories
+  Future<void> createCategory(String name) => ApiClient.post('/cms/categories', {'name': name, 'active': true});
 
   // PATCH /api/v1/cms/categories/{id}/toggle
   Future<void> toggleCategory(String id) => ApiClient.patch('/cms/categories/$id/toggle');
@@ -175,8 +184,18 @@ class AdminRepository {
 
   // GET /api/v1/events/admin
   Future<List<PlatformEvent>> events() async {
-    final data = await ApiClient.get('/events/admin') as Map;
-    return (data['items'] as List).map((j) => PlatformEvent.fromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/events/admin')).map(PlatformEvent.fromJson).toList();
+    list.sort((a, b) => a.date.compareTo(b.date));
+    return list;
+  }
+
+  // POST /api/v1/events/admin — create; PUT /api/v1/events/admin/{id} — full edit.
+  Future<void> saveEvent(PlatformEvent e) async {
+    if (e.id.isEmpty) {
+      await ApiClient.post('/events/admin', e.toWriteJson());
+    } else {
+      await ApiClient.put('/events/admin/${e.id}', e.toWriteJson());
+    }
   }
 
   // PUT /api/v1/events/admin/{id}
@@ -196,11 +215,7 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> newsletters() async {
     try {
-      final data = await ApiClient.get('/cms/newsletters');
-      if (data is List) return data.cast<Map<String, dynamic>>();
-      if (data is Map && data['items'] is List) {
-        return (data['items'] as List).cast<Map<String, dynamic>>();
-      }
+      return ApiClient.asList(await ApiClient.get('/cms/newsletters'));
     } catch (_) {}
     return const [];
   }
@@ -219,11 +234,7 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> newsletterContributions() async {
     try {
-      final data = await ApiClient.get('/cms/newsletters/contributions');
-      if (data is List) return data.cast<Map<String, dynamic>>();
-      if (data is Map && data['items'] is List) {
-        return (data['items'] as List).cast<Map<String, dynamic>>();
-      }
+      return ApiClient.asList(await ApiClient.get('/cms/newsletters/contributions'));
     } catch (_) {}
     return const [];
   }
@@ -232,13 +243,15 @@ class AdminRepository {
 
   // GET /api/v1/analytics/admin/trends
   Future<Map<String, List<KpiPoint>>> analytics() async {
-    final data = await ApiClient.get('/analytics/admin/trends') as Map;
-    List<KpiPoint> parsePoints(List points) =>
-        points.map((p) => KpiPoint(p['label'] as String, (p['value'] as num).toDouble())).toList();
+    final data = ApiClient.asMap(await ApiClient.get('/analytics/admin/trends'));
+    List<KpiPoint> parse(Object? section, String key) => ApiClient.asList(section, key).map((p) {
+          final v = p['value'];
+          return KpiPoint('${p['label'] ?? ''}', v is num ? v.toDouble() : double.tryParse('$v') ?? 0);
+        }).toList();
     return {
-      'revenue': parsePoints((data['revenue'] as Map)['points'] as List),
-      'signups': parsePoints((data['signups'] as Map)['points'] as List),
-      'categoryShare': parsePoints((data['category_share'] as Map)['shares'] as List),
+      'revenue': parse(data['revenue'], 'points'),
+      'signups': parse(data['signups'], 'points'),
+      'categoryShare': parse(data['category_share'], 'shares'),
     };
   }
 
@@ -246,14 +259,12 @@ class AdminRepository {
 
   // GET /subscriptions/admin/plans
   Future<List<SubscriptionPlan>> subscriptionPlans() async {
-    final data = await ApiClient.get('/subscriptions/admin/plans') as List;
-    return data.map((j) => SubscriptionPlan.fromJson(j)).toList();
+    return ApiClient.asList(await ApiClient.get('/subscriptions/admin/plans')).map(SubscriptionPlan.fromJson).toList();
   }
 
   // POST /subscriptions/admin/plans
   Future<SubscriptionPlan> createPlan(SubscriptionPlan plan) async {
-    final data = await ApiClient.post('/subscriptions/admin/plans', plan.toJson());
-    return SubscriptionPlan.fromJson(data);
+    return SubscriptionPlan.fromJson(ApiClient.asMap(await ApiClient.post('/subscriptions/admin/plans', plan.toJson())));
   }
 
   // PUT /subscriptions/admin/plans/{id}
@@ -266,8 +277,7 @@ class AdminRepository {
 
   // GET /subscriptions/admin/payment-info
   Future<PaymentSettings> paymentSettings() async {
-    final data = await ApiClient.get('/subscriptions/admin/payment-info') as Map;
-    return PaymentSettings.fromJson(data.cast<String, dynamic>());
+    return PaymentSettings.fromJson(ApiClient.asMap(await ApiClient.get('/subscriptions/admin/payment-info')));
   }
 
   // PUT /subscriptions/admin/payment-info
@@ -278,8 +288,9 @@ class AdminRepository {
   // GET /subscriptions/admin/requests
   Future<List<SubscriptionRequest>> subscriptionRequests({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/subscriptions/admin/requests$q') as List;
-    return data.map((j) => SubscriptionRequest.fromJson(j)).toList();
+    final list = ApiClient.asList(await ApiClient.get('/subscriptions/admin/requests$q')).map(SubscriptionRequest.fromJson).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   // POST /subscriptions/admin/requests/{id}/approve
@@ -301,9 +312,7 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> advanceRequests({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final data = await ApiClient.get('/bookings/admin/advance$q');
-    if (data is List) return data.cast<Map<String, dynamic>>();
-    return const [];
+    return ApiClient.asList(await ApiClient.get('/bookings/admin/advance$q'));
   }
 
   Future<void> approveAdvance(String id, {String adminNote = ''}) async {
@@ -326,10 +335,7 @@ class AdminRepository {
     for (final path in paths) {
       try {
         final data = await ApiClient.get(path);
-        if (data is List) return data.cast<Map<String, dynamic>>();
-        if (data is Map && data['items'] is List) {
-          return (data['items'] as List).cast<Map<String, dynamic>>();
-        }
+        if (data is List || data is Map) return ApiClient.asList(data);
       } catch (_) {
         // try the next candidate path
       }
@@ -432,22 +438,29 @@ class AdminRepository {
 
   Future<void> deleteSocialAccount(String id) => ApiClient.delete('/cms/social/$id');
 
-  static Review _reviewFromJson(Map j) => Review(
-        id: j['id'],
-        author: j['author_id'] ?? '',
-        target: j['vendor_id'] ?? '',
-        stars: j['stars'],
-        text: j['text'],
-        flagged: j['flagged'] ?? false,
-        date: DateTime.parse(j['date']),
-      );
+  // ── Platform settings & admin team ─────────────────────────────
+  // GET/PUT /api/v1/settings/platform and /api/v1/admins. A deployment
+  // without these routes answers 404, which the Settings screen turns into
+  // a clear "not enabled on this backend" state rather than fake toggles.
 
-  static SupportTicket _ticketFromJson(Map j) => SupportTicket(
-        id: j['id'],
-        subject: j['subject'],
-        requester: j['requester_id'] ?? '',
-        priority: j['priority'],
-        status: j['status'],
-        date: DateTime.parse(j['created_at']),
-      );
+  Future<Map<String, dynamic>> platformSettings() async =>
+      ApiClient.asMap(await ApiClient.get('/settings/platform'));
+
+  Future<Map<String, dynamic>> savePlatformSettings(Map<String, dynamic> body) async =>
+      ApiClient.asMap(await ApiClient.put('/settings/platform', body));
+
+  Future<List<Map<String, dynamic>>> admins() async => ApiClient.asList(await ApiClient.get('/admins'));
+
+  Future<void> inviteAdmin({required String email, required String name, String city = ''}) =>
+      ApiClient.post('/admins/invite', {'email': email, 'name': name, if (city.isNotEmpty) 'city': city});
+
+  /// Anonymous password-reset request from the sign-in page. Lands in the
+  /// Leads inbox for another admin (or the platform owner) to action.
+  Future<void> requestPasswordReset(String email) => ApiClient.post('/browse/leads', {
+        'kind': 'password_reset',
+        'name': email.split('@').first,
+        'email': email,
+        'message': 'Super Admin console password reset requested for $email.',
+        'source': 'admin_console',
+      }, auth: false);
 }

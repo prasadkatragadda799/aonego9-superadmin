@@ -1,12 +1,12 @@
 {
-    "name": "aonego9_superadmin",
-    "short_name": "aonego9_superadmin",
+    "name": "AOneGo9 Super Admin",
+    "short_name": "AOneGo9 Admin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#FBF6EC",
+    "theme_color": "#8C1D2E",
+    "description": "Govern vendors, talent, bookings, payments, content and analytics on AOneGo9.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

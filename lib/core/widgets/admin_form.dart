@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/typography.dart';
 import '../responsive/responsive.dart';
+import '../widgets/common.dart';
+import '../../data/api/api_errors.dart';
 
 /// Form primitives shared by the directory desks (ads, sessions, partners,
 /// team, social). The existing `common.dart` had read-only display widgets
@@ -47,9 +49,9 @@ class AdminInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border = OutlineInputBorder(
+    final border = OutlineInputBorder(
       borderSide: BorderSide(color: AppColors.border),
-      borderRadius: BorderRadius.all(Radius.circular(9)),
+      borderRadius: const BorderRadius.all(Radius.circular(9)),
     );
     return TextField(
       controller: controller,
@@ -67,9 +69,9 @@ class AdminInput extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: border,
         enabledBorder: border,
-        focusedBorder: const OutlineInputBorder(
+        focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: AppColors.gold),
-          borderRadius: BorderRadius.all(Radius.circular(9)),
+          borderRadius: const BorderRadius.all(Radius.circular(9)),
         ),
       ),
     );
@@ -96,7 +98,7 @@ class AdminSelect<T> extends StatelessWidget {
             isExpanded: true,
             isDense: true,
             dropdownColor: AppColors.surfaceAlt,
-            icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.textMuted),
+            icon: Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.textMuted),
             style: AppType.body(size: 13, color: AppColors.textPrimary),
             items: [
               for (final o in options)
@@ -179,7 +181,7 @@ class _AdminEditorState extends State<AdminEditor> {
             children: [
               Container(
                 padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surfaceAlt,
                   border: Border(bottom: BorderSide(color: AppColors.border)),
                 ),
@@ -204,7 +206,7 @@ class _AdminEditorState extends State<AdminEditor> {
               ),
               Container(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -286,14 +288,7 @@ class AdminToggle extends StatelessWidget {
 /// Turns a repository failure into something a human can act on. The console's
 /// existing screens each hand-rolled this string mangling; this is the same
 /// result in one place.
-String adminErrorText(Object err) {
-  final msg = err
-      .toString()
-      .replaceFirst('ApiException', '')
-      .replaceAll(RegExp(r'^\(\d+\):\s*'), '')
-      .trim();
-  return msg.isEmpty ? 'Something went wrong' : msg;
-}
+String adminErrorText(Object err) => apiErrorMessage(err);
 
 void showAdminError(BuildContext context, Object err) =>
     showAdminErrorOn(ScaffoldMessenger.of(context), err);
@@ -306,11 +301,6 @@ void showAdminOk(BuildContext context, String msg) =>
 /// Capturing the messenger BEFORE an await is what makes these safe: reaching
 /// for `BuildContext` after the await is exactly the pattern that crashes when
 /// the dialog has already been dismissed.
-void showAdminErrorOn(ScaffoldMessengerState m, Object err) {
-  m.showSnackBar(
-    SnackBar(content: Text(adminErrorText(err)), backgroundColor: AppColors.danger),
-  );
-}
+void showAdminErrorOn(ScaffoldMessengerState m, Object err) => Toast.error(m, adminErrorText(err));
 
-void showAdminOkOn(ScaffoldMessengerState m, String msg) =>
-    m.showSnackBar(SnackBar(content: Text(msg)));
+void showAdminOkOn(ScaffoldMessengerState m, String msg) => Toast.ok(m, msg);

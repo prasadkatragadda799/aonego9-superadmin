@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
@@ -51,8 +50,8 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
     if (_loading) return const LoadingView();
     final isPartners = _tab == 'partners';
 
-    return ListView(
-      padding: EdgeInsets.all(responsiveValue(context, mobile: 16, desktop: 28)),
+    return PageBody(
+      onRefresh: _load,
       children: [
         PageHeader(
           eyebrow: 'Who stands behind the floor',
@@ -67,7 +66,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        Wrap(spacing: 14, runSpacing: 14, children: [
+        ResponsiveGrid(minTileWidth: 180, children: [
           StatCard(
             label: 'Brand partners',
             value: '${_partners.where((p) => p.tier != PartnerTier.academic).length}',

@@ -1,6 +1,6 @@
 # AOneGo9 — Super Admin Console
 
-A deploy-ready **Flutter** admin panel for the AOneGo9 modeling-agency & production-house marketplace. One codebase renders an adaptive **desktop** (sidebar) and **mobile** (drawer) UI. All data currently comes from an in-memory mock layer that is structured to be swapped for a real backend with zero UI changes.
+A deploy-ready **Flutter** admin panel for the AOneGo9 modeling-agency & production-house marketplace. One codebase renders an adaptive **desktop** (sidebar) and **mobile** (drawer) UI. All data comes from the AOneGo9 FastAPI backend (`/api/v1`), the same one the user app uses.
 
 ---
 
@@ -28,7 +28,7 @@ flutter run -d macos     # or windows / linux
 flutter run -d <device>
 ```
 
-Login screen has demo credentials pre-filled — just press **Sign In**.
+Sign in with an admin account created on the backend.
 
 ---
 
@@ -114,3 +114,22 @@ Gold (`#C9A86C`) on deep charcoal, matching the AOneGo9 marketing site. All
 tokens live in `lib/core/theme/app_colors.dart`.
 
 > Mock data is illustrative. Wire the repository layer to your API to go live.
+
+---
+
+## Production
+
+```bash
+flutter build web --release \
+  --dart-define=API_BASE_URL=https://<your-backend>/api/v1
+```
+```bash
+# optional — used in vendor invitations (also editable in Settings → App links)
+  --dart-define=VENDOR_APP_URL=https://<vendor-console-host> \
+  --dart-define=USER_APP_URL=https://<marketplace-host>
+```
+
+- Design system matches the user app: saffron/maroon palette, Poppins + Inter, light/dark/system theme (WCAG AA enforced by `test/contrast_test.dart`).
+- `vercel.json` serves the SPA with security headers and no-cache on the unhashed bundle so deploys take effect immediately.
+- Local check of a release build: `python3 -m http.server 8742 --directory build/web`.
+- Routes used that the other apps do not exercise (confirm they exist on the backend): `POST /cms/banners`, `POST /cms/categories`, `POST /events/admin`, `PUT /events/admin/{id}` (full edit), `GET|PUT /settings/platform`, `GET /admins`, `POST /admins/invite`. If a route is missing the screen says so instead of faking success.
