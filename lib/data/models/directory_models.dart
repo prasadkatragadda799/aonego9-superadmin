@@ -423,7 +423,10 @@ class Lead {
     'booking_issue', 'listing_review', 'newsletter_pitch',
   };
 
-  String get vendorId => '${details['vendor_id'] ?? ''}';
+  /// Only trusted when the backend stamped it from a signed-in vendor's
+  /// token — an anonymous lead's vendor_id is stripped server-side.
+  String get vendorId => details['verified_sender'] == true ? '${details['vendor_id'] ?? ''}' : '';
+  bool get fromVerifiedVendor => details['verified_sender'] == true;
   double get amount => double.tryParse('${details['amount'] ?? ''}') ?? 0;
   String get documentUrl => '${details['document_url'] ?? ''}';
 
@@ -435,12 +438,18 @@ class Lead {
       'message', 'status', 'created_at', 'createdAt',
     };
     final details = <String, dynamic>{};
-    j.forEach((k, v) {
-      if (known.contains(k)) return;
-      final s = _s(v);
-      if (s.isEmpty || s == 'null') return;
-      details[k] = v;
-    });
+    void collect(Map src) {
+      src.forEach((k, v) {
+        if (known.contains(k) || k == 'details') return;
+        final s = _s(v);
+        if (s.isEmpty || s == 'null') return;
+        details['$k'] = v;
+      });
+    }
+
+    collect(j);
+    // The backend returns the free-form fields nested under `details`.
+    if (j['details'] is Map) collect(j['details'] as Map);
 
     return Lead(
       id: _s(j['id']),

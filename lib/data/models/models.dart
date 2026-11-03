@@ -464,7 +464,7 @@ class CmsBanner {
         placement: _str(j['placement']),
         active: _bool(j['active'], fb: true),
         imageUrl: _str(_pick(j, ['image_url', 'imageUrl'])),
-        link: _str(_pick(j, ['link', 'url', 'cta_url'])),
+        link: _str(_pick(j, ['link_url', 'link', 'url'])),
       );
 
   Map<String, dynamic> toJson() => {
@@ -472,7 +472,7 @@ class CmsBanner {
         'placement': placement,
         'active': active,
         'image_url': imageUrl,
-        'link': link,
+        'link_url': link,
       };
 
   CmsBanner copyWith({bool? active}) =>

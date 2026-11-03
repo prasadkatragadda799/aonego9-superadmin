@@ -5,6 +5,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
 import '../../core/widgets/common.dart';
 import '../../data/models/directory_models.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Workshops & Webinars — the sessions programme the user app lists and takes
@@ -19,6 +20,7 @@ class _SessionsAdminScreenState extends State<SessionsAdminScreen> {
   final _repo = AdminRepository();
   List<Session> _sessions = [];
   bool _loading = true;
+  String? _error;
   String _mode = 'all';
 
   @override
@@ -28,12 +30,22 @@ class _SessionsAdminScreenState extends State<SessionsAdminScreen> {
   }
 
   Future<void> _load() async {
-    final s = await _repo.sessions();
-    if (!mounted) return;
-    setState(() {
-      _sessions = s;
-      _loading = false;
-    });
+    setState(() => _error = null);
+    try {
+      final s = await _repo.sessions();
+      if (!mounted) return;
+      setState(() {
+        _sessions = s;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = apiErrorMessage(e, fallback: 'Could not load this page.');
+        });
+      }
+    }
   }
 
   List<Session> get _visible {
@@ -70,6 +82,7 @@ class _SessionsAdminScreenState extends State<SessionsAdminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     if (_loading) return const LoadingView();
     final published = _sessions.where((s) => s.published).length;
     final registrations = _sessions.fold<int>(0, (sum, s) => sum + s.registrations);

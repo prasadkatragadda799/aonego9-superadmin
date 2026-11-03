@@ -28,7 +28,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
 
   static final _cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-  static final _compact = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
 
   @override
   void initState() {
@@ -67,6 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ['Talent & users', s['totalUsers']],
       ['Active bookings', s['activeBookings']],
       ['Total revenue (INR)', s['revenue']],
+      ['Revenue this month (INR)', s['monthRevenue']],
+      ['Commission earned (INR)', s['commission']],
       ['Open disputes', s['disputes']],
       for (final p in _revenue) ['Revenue ${p.label} (INR)', p.value],
       for (final p in _signups) ['Signups ${p.label}', p.value],
@@ -87,7 +88,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       StatCard(label: 'Pending approvals', value: '${s['pendingVendors']}', icon: Icons.pending_actions_outlined, color: AppColors.warning, onTap: () => context.go('/vendors?status=pending')),
       StatCard(label: 'Talent & users', value: '${s['totalUsers']}', icon: Icons.people_outline, color: AppColors.info, onTap: () => context.go('/users')),
       StatCard(label: 'Active bookings', value: '${s['activeBookings']}', icon: Icons.event_available_outlined, color: AppColors.success, onTap: () => context.go('/bookings')),
-      StatCard(label: 'Total revenue', value: _compact.format(s['revenue']), icon: Icons.payments_outlined, color: AppColors.goldLight, onTap: () => context.go('/payments')),
+      StatCard(label: 'Total revenue', value: money(s['revenue'] ?? 0), icon: Icons.payments_outlined, color: AppColors.goldLight, onTap: () => context.go('/payments')),
+      StatCard(label: 'Revenue this month', value: money(s['monthRevenue'] ?? 0), icon: Icons.calendar_month_outlined, color: AppColors.gold, onTap: () => context.go('/payments')),
+      StatCard(label: 'Commission earned', value: money(s['commission'] ?? 0), icon: Icons.percent, color: AppColors.success, onTap: () => context.go('/payments')),
       StatCard(label: 'Open disputes', value: '${s['disputes']}', icon: Icons.gavel_outlined, color: AppColors.danger, onTap: () => context.go('/bookings?status=disputed')),
     ];
 
@@ -106,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 22),
-        ResponsiveGrid(minTileWidth: 200, maxColumns: 3, children: [
+        ResponsiveGrid(minTileWidth: 200, maxColumns: 4, children: [
           for (var i = 0; i < cards.length; i++) FadeUp(delay: Duration(milliseconds: 60 + i * 50), child: cards[i]),
         ]),
         const SizedBox(height: 20),

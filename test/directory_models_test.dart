@@ -147,4 +147,25 @@ void _placeLabelGuards() {
       expect(at().placeLabel, isEmpty);
     });
   });
+
+  group('Lead (backend contract)', () {
+    test('reads extras nested under details', () {
+      final l = Lead.fromJson({
+        'id': 'LD-1',
+        'kind': 'payout_request',
+        'name': 'Priya',
+        'details': {'vendor_id': 'V-1', 'amount': 5000, 'verified_sender': true, 'document_url': 'https://x/kyc.jpg'},
+      });
+      expect(l.vendorId, 'V-1');
+      expect(l.amount, 5000);
+      expect(l.documentUrl, 'https://x/kyc.jpg');
+      expect(l.isVendorRequest, isTrue);
+    });
+
+    test('an unverified vendor_id is never trusted', () {
+      final l = Lead.fromJson({'id': 'LD-2', 'kind': 'payout_request', 'details': {'vendor_id': 'FORGED', 'amount': 99999}});
+      expect(l.vendorId, isEmpty);
+      expect(l.fromVerifiedVendor, isFalse);
+    });
+  });
 }

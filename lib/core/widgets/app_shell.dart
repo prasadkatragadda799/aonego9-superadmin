@@ -33,6 +33,12 @@ class AdminBadges {
   static int get total => items.value.fold(0, (s, i) => s + i.count);
 
   static Future<void> refresh({bool force = false}) async {
+    // The session ended (sign-out or expiry): stop polling rather than keep
+    // calling the API from the sign-in page.
+    if (!await ApiClient.isLoggedIn()) {
+      stop();
+      return;
+    }
     final now = DateTime.now();
     if (!force && now.difference(_last) < const Duration(seconds: 30)) return;
     _last = now;
@@ -59,13 +65,14 @@ class AdminBadges {
 
   static void start() {
     _timer ??= Timer.periodic(const Duration(seconds: 90), (_) => refresh(force: true));
-    refresh();
+    refresh(force: true);
   }
 
   static void stop() {
     _timer?.cancel();
     _timer = null;
     items.value = const [];
+    _last = DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
 
@@ -88,6 +95,7 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     AdminBadges.start();
   }
+
 
   @override
   void didUpdateWidget(covariant AppShell old) {

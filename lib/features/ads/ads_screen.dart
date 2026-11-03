@@ -5,6 +5,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
 import '../../core/widgets/common.dart';
 import '../../data/models/directory_models.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Ads & Promotions — the video and photo creatives the marketplace shows in
@@ -20,6 +21,7 @@ class _AdsScreenState extends State<AdsScreen> {
   final _repo = AdminRepository();
   List<AdCreative> _ads = [];
   bool _loading = true;
+  String? _error;
   String _filter = 'all'; // all | video | photo
 
   @override
@@ -29,12 +31,22 @@ class _AdsScreenState extends State<AdsScreen> {
   }
 
   Future<void> _load() async {
-    final ads = await _repo.ads();
-    if (!mounted) return;
-    setState(() {
-      _ads = ads;
-      _loading = false;
-    });
+    setState(() => _error = null);
+    try {
+      final ads = await _repo.ads();
+      if (!mounted) return;
+      setState(() {
+        _ads = ads;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = apiErrorMessage(e, fallback: 'Could not load this page.');
+        });
+      }
+    }
   }
 
   List<AdCreative> get _visible =>
@@ -94,6 +106,7 @@ class _AdsScreenState extends State<AdsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     if (_loading) return const LoadingView();
     final live = _ads.where((a) => a.active).length;
 

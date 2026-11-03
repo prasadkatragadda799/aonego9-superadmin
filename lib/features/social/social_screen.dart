@@ -5,6 +5,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
 import '../../core/widgets/common.dart';
 import '../../data/models/directory_models.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Social & Marketing — the AOneGo9 accounts the desk runs.
@@ -24,6 +25,7 @@ class _SocialScreenState extends State<SocialScreen> {
   final _repo = AdminRepository();
   List<SocialAccount> _accounts = [];
   bool _loading = true;
+  String? _error;
 
   /// The platforms AOneGo9 actually runs. Offering a free-text platform field
   /// would let two spellings of "Instagram" exist side by side.
@@ -57,12 +59,22 @@ class _SocialScreenState extends State<SocialScreen> {
   }
 
   Future<void> _load() async {
-    final a = await _repo.socialAccounts();
-    if (!mounted) return;
-    setState(() {
-      _accounts = a;
-      _loading = false;
-    });
+    setState(() => _error = null);
+    try {
+      final a = await _repo.socialAccounts();
+      if (!mounted) return;
+      setState(() {
+        _accounts = a;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = apiErrorMessage(e, fallback: 'Could not load this page.');
+        });
+      }
+    }
   }
 
   void _edit([SocialAccount? existing]) {
@@ -113,6 +125,7 @@ class _SocialScreenState extends State<SocialScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     if (_loading) return const LoadingView();
     final reach = _accounts.fold<int>(0, (s, a) => s + a.followers);
     final unowned = _accounts.where((a) => a.owner.trim().isEmpty).length;

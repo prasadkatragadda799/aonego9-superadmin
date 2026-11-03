@@ -4,6 +4,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/admin_form.dart';
 import '../../core/widgets/common.dart';
 import '../../data/models/directory_models.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Partners & Team — the two logo/roster walls the marketplace renders.
@@ -22,6 +23,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
   List<LogoPartner> _partners = [];
   List<TeamMember> _team = [];
   bool _loading = true;
+  String? _error;
   String _tab = 'partners';
   String _tier = 'all';
 
@@ -32,13 +34,23 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([_repo.partners(), _repo.team()]);
-    if (!mounted) return;
-    setState(() {
-      _partners = results[0] as List<LogoPartner>;
-      _team = results[1] as List<TeamMember>;
-      _loading = false;
-    });
+    setState(() => _error = null);
+    try {
+      final results = await Future.wait([_repo.partners(), _repo.team()]);
+      if (!mounted) return;
+      setState(() {
+        _partners = results[0] as List<LogoPartner>;
+        _team = results[1] as List<TeamMember>;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = apiErrorMessage(e, fallback: 'Could not load this page.');
+        });
+      }
+    }
   }
 
   List<LogoPartner> get _visiblePartners => _tier == 'all'
@@ -47,6 +59,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     if (_loading) return const LoadingView();
     final isPartners = _tab == 'partners';
 

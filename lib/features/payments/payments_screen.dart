@@ -26,7 +26,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   String _query = '';
 
   static final _cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-  static final _compact = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
   static const _types = ['all', 'booking', 'advance', 'payout', 'refund', 'commission', 'subscription'];
 
   @override
@@ -66,6 +65,15 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 
   double _sum(String type) => _all.where((p) => p.type == type).fold<double>(0, (s, p) => s + p.amount);
+
+  /// Completed bookings at full value, plus advances on bookings not yet
+  /// completed — an advance is part of its booking's value, so counting both
+  /// would double it.
+  double get _grossVolume {
+    final completed = {for (final p in _all) if (p.type == 'booking' && p.reference.isNotEmpty) p.reference};
+    return _sum('booking') +
+        _all.where((p) => p.type == 'advance' && !completed.contains(p.reference)).fold<double>(0, (s, p) => s + p.amount);
+  }
 
   Future<void> _export() async {
     final m = Toast.of(context);
@@ -107,11 +115,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           const LoadingView()
         else ...[
           ResponsiveGrid(minTileWidth: 180, maxColumns: 5, children: [
-            StatCard(label: 'Gross volume', value: _compact.format(_sum('booking') + _sum('advance')), icon: Icons.trending_up, color: AppColors.gold),
-            StatCard(label: 'Vendor payouts', value: _compact.format(_sum('payout')), icon: Icons.account_balance_outlined, color: AppColors.info),
-            StatCard(label: 'Refunds', value: _compact.format(_sum('refund')), icon: Icons.replay, color: AppColors.danger),
-            StatCard(label: 'Commission', value: _compact.format(_sum('commission')), icon: Icons.percent, color: AppColors.success),
-            StatCard(label: 'Subscriptions', value: _compact.format(_sum('subscription')), icon: Icons.workspace_premium_outlined, color: AppColors.warning),
+            StatCard(label: 'Gross volume', value: money(_grossVolume), icon: Icons.trending_up, color: AppColors.gold),
+            StatCard(label: 'Vendor payouts', value: money(_sum('payout')), icon: Icons.account_balance_outlined, color: AppColors.info),
+            StatCard(label: 'Refunds', value: money(_sum('refund')), icon: Icons.replay, color: AppColors.danger),
+            StatCard(label: 'Commission', value: money(_sum('commission')), icon: Icons.percent, color: AppColors.success),
+            StatCard(label: 'Subscriptions', value: money(_sum('subscription')), icon: Icons.workspace_premium_outlined, color: AppColors.warning),
           ]),
           const SizedBox(height: 18),
           SectionCard(

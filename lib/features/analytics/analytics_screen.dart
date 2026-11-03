@@ -22,7 +22,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String? _error;
   int _months = 6; // 0 = all available
 
-  static final _compact = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1);
   static final _cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
   List<KpiPoint> _window(List<KpiPoint> pts) => _months == 0 || pts.length <= _months ? pts : pts.sublist(pts.length - _months);
@@ -84,11 +83,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         ),
         const SizedBox(height: 20),
         ResponsiveGrid(minTileWidth: 200, children: [
-          StatCard(label: 'Revenue in period', value: _compact.format(totalRev), icon: Icons.payments_outlined, color: AppColors.gold),
+          StatCard(label: 'Revenue in period', value: money(totalRev), icon: Icons.payments_outlined, color: AppColors.gold),
           StatCard(label: 'Signups in period', value: NumberFormat.decimalPattern('en_IN').format(totalSign), icon: Icons.person_add_alt, color: AppColors.info),
           StatCard(
             label: 'Avg revenue / month',
-            value: revenue.isEmpty ? '—' : _compact.format(totalRev / revenue.length),
+            value: revenue.isEmpty ? '—' : money(totalRev / revenue.length),
             icon: Icons.trending_up,
             color: AppColors.success,
           ),

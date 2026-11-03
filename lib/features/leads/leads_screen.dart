@@ -8,6 +8,7 @@ import '../../core/widgets/common.dart';
 import '../../core/utils/file_saver.dart';
 import '../../core/utils/launch_util.dart';
 import '../../data/models/directory_models.dart';
+import '../../data/api/api_errors.dart';
 import '../../data/repositories/admin_repository.dart';
 
 /// Leads & Applications — every submission from the marketplace's Contact us,
@@ -26,6 +27,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
   final _repo = AdminRepository();
   List<Lead> _leads = [];
   bool _loading = true;
+  String? _error;
   String _kind = 'all';
   String _status = 'all';
   late String _search = widget.initialQuery;
@@ -52,12 +54,22 @@ class _LeadsScreenState extends State<LeadsScreen> {
   }
 
   Future<void> _load() async {
-    final l = await _repo.leads();
-    if (!mounted) return;
-    setState(() {
-      _leads = l;
-      _loading = false;
-    });
+    setState(() => _error = null);
+    try {
+      final l = await _repo.leads();
+      if (!mounted) return;
+      setState(() {
+        _leads = l;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = apiErrorMessage(e, fallback: 'Could not load this page.');
+        });
+      }
+    }
   }
 
   Future<void> _export() async {
@@ -152,6 +164,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) return ErrorView(message: _error!, onRetry: _load);
     if (_loading) return const LoadingView();
     final newCount = _leads.where((l) => l.status == 'new').length;
     final applications = _leads.where((l) => l.isApplication).length;
@@ -243,6 +256,10 @@ class _LeadsScreenState extends State<LeadsScreen> {
                 Row(children: [
                   StatusChip(label: l.kindLabel, color: l.isApplication ? AppColors.info : AppColors.gold),
                   const SizedBox(width: 8),
+                  if (l.fromVerifiedVendor) ...[
+                    Tooltip(message: 'Sent by a signed-in vendor', child: Icon(Icons.verified_user_outlined, size: 16, color: AppColors.success)),
+                    const SizedBox(width: 8),
+                  ],
                   StatusChip(label: l.status.replaceAll('_', ' '), color: color),
                 ]),
                 const SizedBox(height: 6),

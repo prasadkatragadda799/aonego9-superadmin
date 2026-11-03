@@ -39,6 +39,8 @@ class AdminRepository {
       'totalUsers': n('total_users'),
       'activeBookings': n('active_bookings'),
       'revenue': n('total_revenue'),
+      'monthRevenue': n('monthly_revenue'),
+      'commission': n('commission_earned'),
       'disputes': n('disputes'),
     };
   }
@@ -48,7 +50,7 @@ class AdminRepository {
   // GET /api/v1/vendors/admin
   Future<List<Vendor>> vendors({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    return ApiClient.asList(await ApiClient.get('/vendors/admin$q')).map(Vendor.fromJson).toList();
+    return (await ApiClient.getAllPages('/vendors/admin$q')).map(Vendor.fromJson).toList();
   }
 
   // PUT /api/v1/vendors/admin/{id}/status  { status }
@@ -76,7 +78,7 @@ class AdminRepository {
   // GET /api/v1/users
   Future<List<AppUser>> users({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    return ApiClient.asList(await ApiClient.get('/users$q')).map(AppUser.fromJson).toList();
+    return (await ApiClient.getAllPages('/users$q')).map(AppUser.fromJson).toList();
   }
 
   // PUT /api/v1/users/{id}/status  { status }
@@ -94,7 +96,7 @@ class AdminRepository {
   // GET /api/v1/bookings/admin
   Future<List<Booking>> bookings({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final list = ApiClient.asList(await ApiClient.get('/bookings/admin$q')).map(Booking.fromJson).toList();
+    final list = (await ApiClient.getAllPages('/bookings/admin$q')).map(Booking.fromJson).toList();
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
@@ -108,7 +110,7 @@ class AdminRepository {
 
   // GET /api/v1/payments/admin
   Future<List<PaymentTxn>> payments() async {
-    final list = ApiClient.asList(await ApiClient.get('/payments/admin')).map(PaymentTxn.fromJson).toList();
+    final list = (await ApiClient.getAllPages('/payments/admin')).map(PaymentTxn.fromJson).toList();
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
@@ -123,7 +125,7 @@ class AdminRepository {
   // GET /api/v1/reviews/admin
   Future<List<Review>> reviews({bool? flagged}) async {
     final q = flagged != null ? '?flagged=$flagged' : '';
-    final list = ApiClient.asList(await ApiClient.get('/reviews/admin$q')).map(Review.fromJson).toList();
+    final list = (await ApiClient.getAllPages('/reviews/admin$q')).map(Review.fromJson).toList();
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
@@ -141,7 +143,7 @@ class AdminRepository {
   // GET /api/v1/support/admin
   Future<List<SupportTicket>> tickets({String? status}) async {
     final q = status != null ? '?status=$status' : '';
-    final list = ApiClient.asList(await ApiClient.get('/support/admin$q')).map(SupportTicket.fromJson).toList();
+    final list = (await ApiClient.getAllPages('/support/admin$q')).map(SupportTicket.fromJson).toList();
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
@@ -175,7 +177,11 @@ class AdminRepository {
   }
 
   // POST /api/v1/cms/categories
-  Future<void> createCategory(String name) => ApiClient.post('/cms/categories', {'name': name, 'active': true});
+  Future<void> createCategory(String name) => ApiClient.post('/cms/categories', {
+        'name': name,
+        'slug': name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), ''),
+        'active': true,
+      });
 
   // PATCH /api/v1/cms/categories/{id}/toggle
   Future<void> toggleCategory(String id) => ApiClient.patch('/cms/categories/$id/toggle');
@@ -184,7 +190,7 @@ class AdminRepository {
 
   // GET /api/v1/events/admin
   Future<List<PlatformEvent>> events() async {
-    final list = ApiClient.asList(await ApiClient.get('/events/admin')).map(PlatformEvent.fromJson).toList();
+    final list = (await ApiClient.getAllPages('/events/admin')).map(PlatformEvent.fromJson).toList();
     list.sort((a, b) => a.date.compareTo(b.date));
     return list;
   }
@@ -326,26 +332,17 @@ class AdminRepository {
   // ── Private helpers ───────────────────────────────────────────
 
   // ── Directory desks ───────────────────────────────────────────
-  // Ads, sessions, partners, team, leads and social accounts. These back the
-  // content the user app renders, and every read degrades to an empty list
-  // rather than throwing — a desk whose backend route isn't live yet must
-  // still open to a usable (empty) screen instead of a red error page.
+  // Ads, sessions, partners, team, leads and social accounts — the content
+  // the user app renders.
 
-  Future<List<Map<String, dynamic>>> _list(List<String> paths) async {
-    for (final path in paths) {
-      try {
-        final data = await ApiClient.get(path);
-        if (data is List || data is Map) return ApiClient.asList(data);
-      } catch (_) {
-        // try the next candidate path
-      }
-    }
-    return const [];
-  }
+  /// A directory desk list. Each desk has exactly one backend route (checked
+  /// against aonego9-backend); failures propagate so the screen shows an
+  /// error with retry rather than an empty list that looks like "no data".
+  Future<List<Map<String, dynamic>>> _list(String path) async => ApiClient.asList(await ApiClient.get(path));
 
   // ── Ads ──
   Future<List<AdCreative>> ads() async =>
-      (await _list(['/cms/ads', '/browse/ads'])).map(AdCreative.fromJson).toList();
+      (await _list('/cms/ads')).map(AdCreative.fromJson).toList();
 
   Future<void> saveAd(AdCreative ad) async {
     if (ad.id.isEmpty) {
@@ -362,7 +359,7 @@ class AdminRepository {
 
   // ── Sessions (workshops & webinars) ──
   Future<List<Session>> sessions() async =>
-      (await _list(['/sessions/admin', '/sessions'])).map(Session.fromJson).toList();
+      (await _list('/sessions/admin')).map(Session.fromJson).toList();
 
   Future<void> saveSession(Session s) async {
     if (s.id.isEmpty) {
@@ -379,7 +376,7 @@ class AdminRepository {
 
   // ── Partners ──
   Future<List<LogoPartner>> partners() async =>
-      (await _list(['/cms/partners', '/browse/partners'])).map(LogoPartner.fromJson).toList();
+      (await _list('/cms/partners')).map(LogoPartner.fromJson).toList();
 
   Future<void> savePartner(LogoPartner p) async {
     if (p.id.isEmpty) {
@@ -396,7 +393,7 @@ class AdminRepository {
 
   // ── Team ──
   Future<List<TeamMember>> team() async =>
-      (await _list(['/cms/team', '/browse/team'])).map(TeamMember.fromJson).toList();
+      (await _list('/cms/team')).map(TeamMember.fromJson).toList();
 
   Future<void> saveTeamMember(TeamMember m) async {
     if (m.id.isEmpty) {
@@ -418,7 +415,7 @@ class AdminRepository {
       if (status != null && status.isNotEmpty) 'status=$status',
     ].join('&');
     final suffix = q.isEmpty ? '' : '?$q';
-    return (await _list(['/browse/leads$suffix', '/cms/leads$suffix'])).map(Lead.fromJson).toList();
+    return (await _list('/browse/leads$suffix')).map(Lead.fromJson).toList();
   }
 
   Future<void> setLeadStatus(String id, String status) =>
@@ -426,7 +423,7 @@ class AdminRepository {
 
   // ── Social accounts ──
   Future<List<SocialAccount>> socialAccounts() async =>
-      (await _list(['/cms/social', '/settings/social'])).map(SocialAccount.fromJson).toList();
+      (await _list('/cms/social')).map(SocialAccount.fromJson).toList();
 
   Future<void> saveSocialAccount(SocialAccount a) async {
     if (a.id.isEmpty) {
@@ -451,8 +448,14 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> admins() async => ApiClient.asList(await ApiClient.get('/admins'));
 
-  Future<void> inviteAdmin({required String email, required String name, String city = ''}) =>
-      ApiClient.post('/admins/invite', {'email': email, 'name': name, if (city.isNotEmpty) 'city': city});
+  /// Returns the one-time temporary password for the new admin — the backend
+  /// has no outbound email, so the inviting admin passes it on.
+  Future<String> inviteAdmin({required String email, required String name, String city = ''}) async {
+    final data = ApiClient.asMap(
+      await ApiClient.post('/admins/invite', {'email': email, 'name': name, if (city.isNotEmpty) 'city': city}),
+    );
+    return '${data['temporary_password'] ?? ''}';
+  }
 
   /// Anonymous password-reset request from the sign-in page. Lands in the
   /// Leads inbox for another admin (or the platform owner) to action.

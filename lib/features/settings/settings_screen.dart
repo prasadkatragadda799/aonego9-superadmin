@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_mode_store.dart';
 import '../../core/theme/typography.dart';
 import '../../core/utils/app_links.dart';
+import '../../core/utils/launch_util.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../core/widgets/common.dart';
 import '../../data/api/api_client.dart';
@@ -148,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Invite an admin'),
+        title: const Text('Add an admin'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -159,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send invite')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Create admin')),
         ],
       ),
     );
@@ -174,11 +175,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     try {
-      await _repo.inviteAdmin(email: e, name: n, city: c);
-      Toast.ok(m, 'Invitation sent to $e');
+      final temp = await _repo.inviteAdmin(email: e, name: n, city: c);
       _loadTeam();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text('$n can sign in now'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Share these sign-in details privately. The temporary password is shown only once.'),
+              const SizedBox(height: 14),
+              SelectableText('Email: $e${c.isEmpty ? '' : '\nCity: $c'}\nTemporary password: $temp',
+                  style: AppType.mono(size: 13.5, color: AppColors.textPrimary)),
+            ]),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () => copyToClipboard(ctx, 'AOneGo9 Super Admin\nEmail: $e${c.isEmpty ? '' : '\nCity: $c'}\nTemporary password: $temp',
+                  label: 'Sign-in details copied'),
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy'),
+            ),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          ],
+        ),
+      );
     } catch (err) {
-      Toast.error(m, apiErrorMessage(err, fallback: 'Could not send the invitation.'));
+      Toast.error(m, apiErrorMessage(err, fallback: 'Could not create the admin.'));
     }
   }
 

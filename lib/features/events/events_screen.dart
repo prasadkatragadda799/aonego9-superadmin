@@ -180,7 +180,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(e.title, style: AppType.body(size: 14, weight: FontWeight.w600)),
                       const SizedBox(height: 2),
-                      Text([if (e.category.isNotEmpty) e.category, if (e.city.isNotEmpty) e.city, df.format(e.date)].join(' · '),
+                      Text([if (e.category.isNotEmpty) e.category, if (e.venue.isNotEmpty) e.venue, if (e.city.isNotEmpty) e.city, df.format(e.date)].join(' · '),
                           style: AppType.body(size: 12, color: AppColors.textMuted)),
                     ]),
                   ),
