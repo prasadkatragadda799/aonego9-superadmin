@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// Shows a receipt from Cloudinary URL or legacy inline base64 data URI.
+/// Shows a receipt from an HTTPS media URL or legacy inline base64 data URI.
 class ReceiptImage extends StatelessWidget {
   final String source;
   final BoxFit fit;
